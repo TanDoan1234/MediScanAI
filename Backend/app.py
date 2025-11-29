@@ -281,8 +281,35 @@ def extract_text_from_image(image_array):
                         })
         
         if not all_texts:
-            print("⚠️ Không có text nào sau khi filter (confidence > 0.3)")
-            return None, []
+            print("⚠️ Không có text nào sau khi filter (confidence > 0.2)")
+            # Fallback: Lấy tất cả text dù confidence thấp
+            print("🔄 Thử lấy tất cả text (không filter confidence)...")
+            for (bbox, text, confidence) in results:
+                text_cleaned = text.strip().strip('[](){}.,;:!?-_=+')
+                if len(text_cleaned) >= 2:
+                    x_coords = [point[0] for point in bbox]
+                    y_coords = [point[1] for point in bbox]
+                    center_x = sum(x_coords) / len(x_coords)
+                    center_y = sum(y_coords) / len(y_coords)
+                    text_width = max(x_coords) - min(x_coords)
+                    text_height = max(y_coords) - min(y_coords)
+                    text_area = text_width * text_height
+                    normalized_area = text_area / (width * height)
+                    
+                    all_texts.append({
+                        'text': text_cleaned,
+                        'confidence': confidence,
+                        'center_x': center_x,
+                        'center_y': center_y,
+                        'distance_from_center': ((center_x - width/2)**2 + (center_y - height/2)**2)**0.5 / ((width/2)**2 + (height/2)**2)**0.5,
+                        'area': normalized_area
+                    })
+            
+            if not all_texts:
+                print("❌ Vẫn không có text nào sau khi lấy tất cả")
+                return None, []
+            else:
+                print(f"✅ Đã lấy được {len(all_texts)} text (không filter confidence)")
         
         # Sắp xếp candidate theo điểm số
         candidate_texts.sort(key=lambda x: x['score'], reverse=True)
