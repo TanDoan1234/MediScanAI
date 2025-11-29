@@ -386,8 +386,8 @@ def extract_text_from_image(image_array):
         print(f"📋 Traceback:\n{traceback.format_exc()}")
         return None, []
 
-def search_drug_in_database(drug_name):
-    """Tìm kiếm thuốc trong database"""
+def search_drug_in_database(drug_name, all_ocr_texts=None):
+    """Tìm kiếm thuốc trong database - cải thiện với fuzzy matching và tìm theo hoạt chất"""
     if drug_db is None or drug_db.empty:
         return None
     
@@ -400,43 +400,70 @@ def search_drug_in_database(drug_name):
     if not drug_name_lower:
         return None
     
-    # Tìm exact match
+    print(f"🔍 Tìm kiếm thuốc: '{drug_name_clean}'")
+    
+    # Tìm exact match trong DrugName
     exact_match = drug_db[drug_db['DrugName'].str.lower() == drug_name_lower]
     if not exact_match.empty:
+        print(f"✅ Tìm thấy exact match: {exact_match.iloc[0]['DrugName']}")
         return exact_match.iloc[0].to_dict()
     
-    # Tìm partial match - dùng regex=False để tránh lỗi với ký tự đặc biệt
+    # Tìm partial match trong DrugName
     try:
         partial_match = drug_db[drug_db['DrugName'].str.lower().str.contains(drug_name_lower, na=False, regex=False)]
         if not partial_match.empty:
+            print(f"✅ Tìm thấy partial match: {partial_match.iloc[0]['DrugName']}")
             return partial_match.iloc[0].to_dict()
     except Exception as e:
         print(f"⚠️ Lỗi tìm kiếm partial match: {e}")
-        # Fallback: escape regex special characters
-        import re
-        escaped_pattern = re.escape(drug_name_lower)
-        try:
-            partial_match = drug_db[drug_db['DrugName'].str.lower().str.contains(escaped_pattern, na=False, regex=True)]
-            if not partial_match.empty:
-                return partial_match.iloc[0].to_dict()
-        except:
-            pass
     
-    # Tìm theo từ khóa
+    # Tìm theo từ khóa trong DrugName
     keywords = drug_name_lower.split()
     for keyword in keywords:
-        if len(keyword) > 3:  # Chỉ tìm từ có > 3 ký tự
-            # Loại bỏ ký tự đặc biệt từ keyword
+        if len(keyword) > 3:
             keyword_clean = keyword.strip('[](){}.,;:!?')
             if len(keyword_clean) > 3:
                 try:
                     keyword_match = drug_db[drug_db['DrugName'].str.lower().str.contains(keyword_clean, na=False, regex=False)]
                     if not keyword_match.empty:
+                        print(f"✅ Tìm thấy theo keyword '{keyword_clean}': {keyword_match.iloc[0]['DrugName']}")
                         return keyword_match.iloc[0].to_dict()
                 except Exception as e:
                     print(f"⚠️ Lỗi tìm kiếm keyword '{keyword_clean}': {e}")
                     continue
     
+    # Nếu không tìm thấy, thử tìm trong ActiveIngredient
+    print(f"🔍 Không tìm thấy trong DrugName, thử tìm trong ActiveIngredient...")
+    try:
+        ingredient_match = drug_db[drug_db['ActiveIngredient'].str.lower().str.contains(drug_name_lower, na=False, regex=False)]
+        if not ingredient_match.empty:
+            print(f"✅ Tìm thấy theo hoạt chất: {ingredient_match.iloc[0]['DrugName']} ({ingredient_match.iloc[0]['ActiveIngredient']})")
+            return ingredient_match.iloc[0].to_dict()
+    except Exception as e:
+        print(f"⚠️ Lỗi tìm kiếm trong ActiveIngredient: {e}")
+    
+    # Nếu có all_ocr_texts, thử tìm với các text khác có confidence cao
+    if all_ocr_texts:
+        print(f"🔍 Thử tìm với các text OCR khác: {all_ocr_texts[:5]}")
+        for ocr_text in all_ocr_texts[:5]:  # Thử 5 text đầu tiên
+            if ocr_text and len(ocr_text.strip()) > 3:
+                ocr_clean = ocr_text.strip().lower()
+                try:
+                    # Tìm trong DrugName
+                    ocr_match = drug_db[drug_db['DrugName'].str.lower().str.contains(ocr_clean, na=False, regex=False)]
+                    if not ocr_match.empty:
+                        print(f"✅ Tìm thấy với text OCR '{ocr_text}': {ocr_match.iloc[0]['DrugName']}")
+                        return ocr_match.iloc[0].to_dict()
+                    
+                    # Tìm trong ActiveIngredient
+                    ocr_ingredient_match = drug_db[drug_db['ActiveIngredient'].str.lower().str.contains(ocr_clean, na=False, regex=False)]
+                    if not ocr_ingredient_match.empty:
+                        print(f"✅ Tìm thấy hoạt chất với text OCR '{ocr_text}': {ocr_ingredient_match.iloc[0]['DrugName']} ({ocr_ingredient_match.iloc[0]['ActiveIngredient']})")
+                        return ocr_ingredient_match.iloc[0].to_dict()
+                except:
+                    continue
+    
+    print(f"❌ Không tìm thấy thuốc: '{drug_name_clean}'")
     return None
 
 def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
@@ -446,13 +473,20 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
     - Lưu ý (notes): Từ chống chỉ định, tương tác thuốc, tác dụng phụ
     """
     if not pdf_text or len(pdf_text.strip()) < 50:
-        return {'usage': '', 'notes': ''}
+        print("⚠️ PDF text quá ngắn hoặc rỗng, không thể tổng hợp")
+        return {
+            'usage': 'Thông tin cách dùng không có trong dược thư cho thuốc này.',
+            'notes': 'Thông tin lưu ý không có trong dược thư cho thuốc này.'
+        }
     
     # Lấy API key từ environment variable
     gemini_api_key = os.getenv('GEMINI_API_KEY')
     if not gemini_api_key:
-        print("⚠️ GEMINI_API_KEY không được cấu hình, trả về text gốc")
-        return {'usage': '', 'notes': ''}
+        print("⚠️ GEMINI_API_KEY không được cấu hình, trả về 'không có'")
+        return {
+            'usage': 'Thông tin cách dùng không có trong dược thư cho thuốc này.',
+            'notes': 'Thông tin lưu ý không có trong dược thư cho thuốc này.'
+        }
     
     try:
         # Cấu hình Gemini
@@ -475,7 +509,7 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
         # Giới hạn độ dài PDF text để tránh vượt quá token limit
         pdf_text_limited = pdf_text[:3000] if len(pdf_text) > 3000 else pdf_text
         
-        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc
+        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc và không bịa ra thông tin
         prompt = f"""Bạn là một dược sĩ chuyên nghiệp. Hãy đọc và tổng hợp thông tin từ Dược thư Quốc gia về thuốc CỤ THỂ sau:
 
 **THUỐC CẦN TÌM:**
@@ -483,38 +517,48 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
 - Hoạt chất: {active_ingredient}
 - Phân loại: {category}
 
-**LƯU Ý QUAN TRỌNG:**
+**LƯU Ý QUAN TRỌNG - ĐỌC KỸ:**
 - Trang PDF có thể chứa thông tin của NHIỀU thuốc khác nhau
 - BẠN CHỈ ĐƯỢC tổng hợp thông tin về thuốc "{drug_name}" hoặc "{active_ingredient}"
 - BỎ QUA hoàn toàn thông tin về các thuốc khác (như Polymyxin, Polygelin, hoặc bất kỳ thuốc nào khác)
-- Nếu không tìm thấy thông tin về thuốc này, trả về "Không tìm thấy thông tin" thay vì thông tin của thuốc khác
+- **QUAN TRỌNG NHẤT: NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY TRONG PDF, BẠN PHẢI TRẢ VỀ "KHÔNG CÓ TRONG DƯỢC THƯ"**
+- **TUYỆT ĐỐI KHÔNG ĐƯỢC BỊA RA, TẠO RA, HOẶC SUY ĐOÁN THÔNG TIN KHÔNG CÓ TRONG PDF**
+- **CHỈ TỔNG HỢP THÔNG TIN CÓ THẬT TRONG PDF, KHÔNG THÊM BẤT KỲ THÔNG TIN NÀO KHÔNG CÓ TRONG PDF**
 
 **Thông tin từ Dược thư (có thể chứa nhiều thuốc):**
 {pdf_text_limited}
 
 **YÊU CẦU:**
 1. Tổng hợp phần "CÁCH DÙNG" (usage) - CHỈ về thuốc "{drug_name}":
+   - **CHỈ tổng hợp thông tin CÓ THẬT trong PDF về thuốc này**
    - Viết bằng ngôn ngữ đơn giản, dễ hiểu
    - Tập trung vào: liều lượng, thời điểm uống, cách uống, tần suất
    - Sử dụng câu ngắn gọn, rõ ràng
    - Loại bỏ thuật ngữ y khoa phức tạp
-   - Nếu không có thông tin, viết: "Thông tin cách dùng không có trong dược thư"
+   - **NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY, BẠN PHẢI VIẾT CHÍNH XÁC: "Thông tin cách dùng không có trong dược thư cho thuốc này."**
+   - **KHÔNG ĐƯỢC TẠO RA, BỊA RA, HOẶC SUY ĐOÁN THÔNG TIN**
 
 2. Tổng hợp phần "LƯU Ý" (notes) - CHỈ về thuốc "{drug_name}":
+   - **CHỈ tổng hợp thông tin CÓ THẬT trong PDF về thuốc này**
    - Từ chống chỉ định: ai không nên dùng
    - Tương tác thuốc: không dùng cùng với thuốc gì
    - Tác dụng phụ: cần chú ý gì
    - Đối tượng đặc biệt: phụ nữ có thai, trẻ em, người già
    - Bảo quản: cách bảo quản thuốc
-   - Nếu không có thông tin, viết: "Thông tin lưu ý không có trong dược thư"
+   - **NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY, BẠN PHẢI VIẾT CHÍNH XÁC: "Thông tin lưu ý không có trong dược thư cho thuốc này."**
+   - **KHÔNG ĐƯỢC TẠO RA, BỊA RA, HOẶC SUY ĐOÁN THÔNG TIN**
 
 **Trả về theo định dạng JSON:**
 {{
-  "usage": "Phần cách dùng đã tổng hợp (CHỈ về {drug_name})",
-  "notes": "Phần lưu ý đã tổng hợp (CHỈ về {drug_name})"
+  "usage": "Phần cách dùng (CHỈ thông tin có thật trong PDF về {drug_name}, hoặc 'Thông tin cách dùng không có trong dược thư cho thuốc này.' nếu không có)",
+  "notes": "Phần lưu ý (CHỈ thông tin có thật trong PDF về {drug_name}, hoặc 'Thông tin lưu ý không có trong dược thư cho thuốc này.' nếu không có)"
 }}
 
-**QUAN TRỌNG:** Chỉ trả về JSON, không thêm text khác. KHÔNG được trả về thông tin của thuốc khác."""
+**QUAN TRỌNG:**
+- Chỉ trả về JSON, không thêm text khác
+- KHÔNG được trả về thông tin của thuốc khác
+- **TUYỆT ĐỐI KHÔNG BỊA RA THÔNG TIN - CHỈ TỔNG HỢP THÔNG TIN CÓ THẬT TRONG PDF**
+- Nếu không tìm thấy, phải trả về message "không có trong dược thư" một cách rõ ràng"""
         
         response = model.generate_content(prompt)
         result_text = response.text.strip()
@@ -529,10 +573,34 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
             usage = result.get('usage', '').strip()
             notes = result.get('notes', '').strip()
             
-            # Kiểm tra xem có phải là thông báo lỗi không
-            if 'không tìm thấy' in usage.lower() or 'không có trong' in usage.lower():
+            # Kiểm tra xem có phải là thông báo không có thông tin không
+            # Chuẩn hóa message để đảm bảo rõ ràng
+            usage_lower = usage.lower()
+            notes_lower = notes.lower()
+            
+            # Kiểm tra các pattern cho "không có thông tin"
+            no_info_patterns = [
+                'không tìm thấy',
+                'không có trong',
+                'không có thông tin',
+                'chưa có thông tin',
+                'thiếu thông tin'
+            ]
+            
+            if any(pattern in usage_lower for pattern in no_info_patterns):
                 usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
-            if 'không tìm thấy' in notes.lower() or 'không có trong' in notes.lower():
+            
+            if any(pattern in notes_lower for pattern in no_info_patterns):
+                notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
+            
+            # Kiểm tra nếu Gemini trả về text quá ngắn hoặc không có ý nghĩa (có thể là bịa ra)
+            # Nếu usage hoặc notes quá ngắn (< 20 ký tự) và không phải là message "không có", có thể là lỗi
+            if len(usage.strip()) < 20 and not any(pattern in usage_lower for pattern in no_info_patterns):
+                print(f"⚠️ Usage quá ngắn ({len(usage)} ký tự), có thể không chính xác. Đặt lại thành 'không có'")
+                usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
+            
+            if len(notes.strip()) < 20 and not any(pattern in notes_lower for pattern in no_info_patterns):
+                print(f"⚠️ Notes quá ngắn ({len(notes)} ký tự), có thể không chính xác. Đặt lại thành 'không có'")
                 notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
             
             # Giới hạn độ dài
@@ -719,7 +787,7 @@ def scan_drug():
             print(f"📝 Tìm kiếm với text đã xác nhận: {confirmed_text}")
             
             # Tìm kiếm trong database
-            drug_info = search_drug_in_database(confirmed_text)
+            drug_info = search_drug_in_database(confirmed_text, None)
             
             if drug_info:
                 # Kiểm tra thuốc kê đơn
@@ -850,8 +918,8 @@ def scan_drug():
         print(f"📝 Text nhận diện được: {extracted_text}")
         print(f"📋 Tất cả text OCR: {all_ocr_texts}")
         
-        # Tìm kiếm trong database
-        drug_info = search_drug_in_database(extracted_text)
+        # Tìm kiếm trong database - truyền cả all_ocr_texts để tìm với các text khác
+        drug_info = search_drug_in_database(extracted_text, all_ocr_texts)
         
         if drug_info:
             # KIỂM TRA AN TOÀN: Nếu là thuốc kê đơn (Is_Prescription = True), chặn lại

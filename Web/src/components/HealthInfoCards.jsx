@@ -9,7 +9,7 @@ export default function HealthInfoCards() {
         <span className="text-[11px] text-teal-600 font-semibold cursor-pointer">Xem tất cả</span>
       </div>
       
-      <div className="flex overflow-x-auto gap-4 pb-4 -mx-5 px-5 scrollbar-hide snap-x">
+      <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 sm:-mx-5 px-4 sm:px-5 scrollbar-hide snap-x overscroll-x-contain">
         {healthInfos.map((info) => (
           <div key={info.id} className="min-w-[240px] bg-white p-4 rounded-2xl border border-gray-100 shadow-sm snap-center flex flex-col justify-between h-[130px]">
             <div>

@@ -1,12 +1,16 @@
 import React from 'react';
 import { Menu, Bell, Clock, ShieldCheck } from 'lucide-react';
 
-export default function Header({ showNotifications, setShowNotifications }) {
+export default function Header({ showNotifications, setShowNotifications, onMenuClick }) {
   const toggleNotifications = () => setShowNotifications(!showNotifications);
 
   return (
-    <div className="flex justify-between items-center px-6 pt-10 pb-4 bg-white z-20">
-      <button className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition">
+    <div className="flex justify-between items-center px-4 sm:px-6 pt-6 sm:pt-8 pb-3 bg-white z-20 flex-shrink-0">
+      <button 
+        onClick={onMenuClick}
+        className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition active:scale-95"
+        aria-label="Menu"
+      >
         <Menu className="w-6 h-6" />
       </button>
       <div className="flex flex-col items-center">

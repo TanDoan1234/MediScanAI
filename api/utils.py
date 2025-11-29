@@ -228,7 +228,11 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
     - Lưu ý (notes): Từ chống chỉ định, tương tác thuốc, tác dụng phụ
     """
     if not pdf_text or len(pdf_text.strip()) < 50:
-        return {'usage': '', 'notes': ''}
+        print("⚠️ PDF text quá ngắn hoặc rỗng, không thể tổng hợp")
+        return {
+            'usage': 'Thông tin cách dùng không có trong dược thư cho thuốc này.',
+            'notes': 'Thông tin lưu ý không có trong dược thư cho thuốc này.'
+        }
     
     if not GEMINI_AVAILABLE:
         return {'usage': '', 'notes': ''}
@@ -261,7 +265,7 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
         # Tăng lên 4000 để có đủ context cho Gemini filter đúng thuốc
         pdf_text_limited = pdf_text[:4000] if len(pdf_text) > 4000 else pdf_text
         
-        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc
+        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc và không bịa ra thông tin
         prompt = f"""Bạn là một dược sĩ chuyên nghiệp. Hãy đọc và tổng hợp thông tin từ Dược thư Quốc gia về thuốc CỤ THỂ sau:
 
 **THUỐC CẦN TÌM:**
@@ -269,38 +273,48 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
 - Hoạt chất: {active_ingredient}
 - Phân loại: {category}
 
-**LƯU Ý QUAN TRỌNG:**
+**LƯU Ý QUAN TRỌNG - ĐỌC KỸ:**
 - Trang PDF có thể chứa thông tin của NHIỀU thuốc khác nhau
 - BẠN CHỈ ĐƯỢC tổng hợp thông tin về thuốc "{drug_name}" hoặc "{active_ingredient}"
 - BỎ QUA hoàn toàn thông tin về các thuốc khác (như Polymyxin, Polygelin, hoặc bất kỳ thuốc nào khác)
-- Nếu không tìm thấy thông tin về thuốc này, trả về "Không tìm thấy thông tin" thay vì thông tin của thuốc khác
+- **QUAN TRỌNG NHẤT: NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY TRONG PDF, BẠN PHẢI TRẢ VỀ "KHÔNG CÓ TRONG DƯỢC THƯ"**
+- **TUYỆT ĐỐI KHÔNG ĐƯỢC BỊA RA, TẠO RA, HOẶC SUY ĐOÁN THÔNG TIN KHÔNG CÓ TRONG PDF**
+- **CHỈ TỔNG HỢP THÔNG TIN CÓ THẬT TRONG PDF, KHÔNG THÊM BẤT KỲ THÔNG TIN NÀO KHÔNG CÓ TRONG PDF**
 
 **Thông tin từ Dược thư (có thể chứa nhiều thuốc):**
 {pdf_text_limited}
 
 **YÊU CẦU:**
 1. Tổng hợp phần "CÁCH DÙNG" (usage) - CHỈ về thuốc "{drug_name}":
+   - **CHỈ tổng hợp thông tin CÓ THẬT trong PDF về thuốc này**
    - Viết bằng ngôn ngữ đơn giản, dễ hiểu
    - Tập trung vào: liều lượng, thời điểm uống, cách uống, tần suất
    - Sử dụng câu ngắn gọn, rõ ràng
    - Loại bỏ thuật ngữ y khoa phức tạp
-   - Nếu không có thông tin, viết: "Thông tin cách dùng không có trong dược thư"
+   - **NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY, BẠN PHẢI VIẾT CHÍNH XÁC: "Thông tin cách dùng không có trong dược thư cho thuốc này."**
+   - **KHÔNG ĐƯỢC TẠO RA, BỊA RA, HOẶC SUY ĐOÁN THÔNG TIN**
 
 2. Tổng hợp phần "LƯU Ý" (notes) - CHỈ về thuốc "{drug_name}":
+   - **CHỈ tổng hợp thông tin CÓ THẬT trong PDF về thuốc này**
    - Từ chống chỉ định: ai không nên dùng
    - Tương tác thuốc: không dùng cùng với thuốc gì
    - Tác dụng phụ: cần chú ý gì
    - Đối tượng đặc biệt: phụ nữ có thai, trẻ em, người già
    - Bảo quản: cách bảo quản thuốc
-   - Nếu không có thông tin, viết: "Thông tin lưu ý không có trong dược thư"
+   - **NẾU KHÔNG TÌM THẤY THÔNG TIN VỀ THUỐC NÀY, BẠN PHẢI VIẾT CHÍNH XÁC: "Thông tin lưu ý không có trong dược thư cho thuốc này."**
+   - **KHÔNG ĐƯỢC TẠO RA, BỊA RA, HOẶC SUY ĐOÁN THÔNG TIN**
 
 **Trả về theo định dạng JSON:**
 {{
-  "usage": "Phần cách dùng đã tổng hợp (CHỈ về {drug_name})",
-  "notes": "Phần lưu ý đã tổng hợp (CHỈ về {drug_name})"
+  "usage": "Phần cách dùng (CHỈ thông tin có thật trong PDF về {drug_name}, hoặc 'Thông tin cách dùng không có trong dược thư cho thuốc này.' nếu không có)",
+  "notes": "Phần lưu ý (CHỈ thông tin có thật trong PDF về {drug_name}, hoặc 'Thông tin lưu ý không có trong dược thư cho thuốc này.' nếu không có)"
 }}
 
-**QUAN TRỌNG:** Chỉ trả về JSON, không thêm text khác. KHÔNG được trả về thông tin của thuốc khác."""
+**QUAN TRỌNG:**
+- Chỉ trả về JSON, không thêm text khác
+- KHÔNG được trả về thông tin của thuốc khác
+- **TUYỆT ĐỐI KHÔNG BỊA RA THÔNG TIN - CHỈ TỔNG HỢP THÔNG TIN CÓ THẬT TRONG PDF**
+- Nếu không tìm thấy, phải trả về message "không có trong dược thư" một cách rõ ràng"""
         
         response = model.generate_content(prompt)
         result_text = response.text.strip()
@@ -315,10 +329,34 @@ def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
             usage = result.get('usage', '').strip()
             notes = result.get('notes', '').strip()
             
-            # Kiểm tra xem có phải là thông báo lỗi không
-            if 'không tìm thấy' in usage.lower() or 'không có trong' in usage.lower():
+            # Kiểm tra xem có phải là thông báo không có thông tin không
+            # Chuẩn hóa message để đảm bảo rõ ràng
+            usage_lower = usage.lower()
+            notes_lower = notes.lower()
+            
+            # Kiểm tra các pattern cho "không có thông tin"
+            no_info_patterns = [
+                'không tìm thấy',
+                'không có trong',
+                'không có thông tin',
+                'chưa có thông tin',
+                'thiếu thông tin'
+            ]
+            
+            if any(pattern in usage_lower for pattern in no_info_patterns):
                 usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
-            if 'không tìm thấy' in notes.lower() or 'không có trong' in notes.lower():
+            
+            if any(pattern in notes_lower for pattern in no_info_patterns):
+                notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
+            
+            # Kiểm tra nếu Gemini trả về text quá ngắn hoặc không có ý nghĩa (có thể là bịa ra)
+            # Nếu usage hoặc notes quá ngắn (< 20 ký tự) và không phải là message "không có", có thể là lỗi
+            if len(usage.strip()) < 20 and not any(pattern in usage_lower for pattern in no_info_patterns):
+                print(f"⚠️ Usage quá ngắn ({len(usage)} ký tự), có thể không chính xác. Đặt lại thành 'không có'")
+                usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
+            
+            if len(notes.strip()) < 20 and not any(pattern in notes_lower for pattern in no_info_patterns):
+                print(f"⚠️ Notes quá ngắn ({len(notes)} ký tự), có thể không chính xác. Đặt lại thành 'không có'")
                 notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
             
             # Giới hạn độ dài

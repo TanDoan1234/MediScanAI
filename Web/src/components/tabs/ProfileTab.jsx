@@ -10,13 +10,13 @@ export default function ProfileTab() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 pt-2">
+    <div className="animate-in fade-in duration-300 py-4">
       <div className="flex items-center gap-4 mb-8 px-2">
-        <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 text-2xl font-bold border-4 border-white shadow-md">
+        <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 text-2xl font-bold border-4 border-white shadow-md flex-shrink-0">
           MK
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Minh Khôi</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-bold text-gray-800 truncate">Minh Khôi</h2>
           <p className="text-xs text-gray-500 bg-gray-200 w-fit px-2 py-0.5 rounded-full mt-1">
             Thành viên Premium
           </p>
@@ -27,10 +27,12 @@ export default function ProfileTab() {
         {menuItems.map((item, index) => (
           <div 
             key={index}
-            className={`p-4 ${index < menuItems.length - 1 ? 'border-b border-gray-50' : ''} flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${item.isDanger ? 'hover:bg-red-50 text-red-500' : ''}`}
+            className={`p-4 ${index < menuItems.length - 1 ? 'border-b border-gray-50' : ''} flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition ${item.isDanger ? 'hover:bg-red-50 text-red-500' : ''}`}
           >
-            {item.icon}
-            <span className={`text-sm font-medium ${item.isDanger ? 'text-red-500' : 'text-gray-700'}`}>
+            <div className="flex-shrink-0">
+              {item.icon}
+            </div>
+            <span className={`text-sm font-medium flex-1 ${item.isDanger ? 'text-red-500' : 'text-gray-700'}`}>
               {item.label}
             </span>
           </div>

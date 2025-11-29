@@ -3,6 +3,8 @@ import { Home, Search, Heart, User, ScanLine } from "lucide-react";
 
 import Header from "./components/Header";
 import NavItem from "./components/NavItem";
+import Sidebar from "./components/Sidebar";
+import CategoryDetailPage from "./components/CategoryDetailPage";
 import ScanOverlay from "./components/ScanOverlay";
 import ScanResultModal from "./components/modals/ScanResultModal";
 import OCRConfirmModal from "./components/modals/OCRConfirmModal";
@@ -23,6 +25,8 @@ export default function MediScanApp() {
   const [ocrData, setOcrData] = useState(null); // Lưu OCR data để xác nhận
   const [currentTab, setCurrentTab] = useState("home");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [currentBanner] = useBannerAutoScroll(banners.length, 5000);
 
   const handleScanClick = () => setIsScanning(true);
@@ -85,25 +89,58 @@ export default function MediScanApp() {
     }
   };
 
+  const handleCategoryClick = (category) => {
+    setSelectedCategory(category);
+  };
+
+  const handleBackFromCategory = () => {
+    setSelectedCategory(null);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-start pt-4 pb-20 font-sans select-none">
-      <div className="w-full max-w-md bg-white shadow-2xl rounded-[32px] overflow-hidden min-h-[800px] relative flex flex-col border border-gray-200">
-        {/* HEADER */}
-        <Header
-          showNotifications={showNotifications}
-          setShowNotifications={setShowNotifications}
+    <div className="h-screen bg-gray-100 flex justify-center items-center pt-2 sm:pt-4 pb-2 sm:pb-4 font-sans select-none overflow-hidden">
+      <div className="w-full max-w-md h-full bg-white shadow-2xl rounded-[24px] sm:rounded-[32px] overflow-hidden relative flex flex-col border border-gray-200">
+        {/* SIDEBAR */}
+        <Sidebar
+          isOpen={showSidebar}
+          onClose={() => setShowSidebar(false)}
+          onCategoryClick={handleCategoryClick}
+          onTabClick={setCurrentTab}
+          currentTab={currentTab}
         />
 
-        {/* MAIN CONTENT AREA (Scrollable) */}
-        <div className="flex-1 overflow-y-auto pb-28 px-5 scrollbar-hide bg-gray-50/50">
-          {currentTab === "home" && <HomeTab currentBanner={currentBanner} />}
-          {currentTab === "search" && <SearchTab />}
-          {currentTab === "heart" && <FavoritesTab />}
-          {currentTab === "user" && <ProfileTab />}
-        </div>
+        {/* CATEGORY DETAIL PAGE */}
+        {selectedCategory ? (
+          <CategoryDetailPage
+            category={selectedCategory}
+            onBack={handleBackFromCategory}
+          />
+        ) : (
+          <>
+            {/* HEADER */}
+            <Header
+              showNotifications={showNotifications}
+              setShowNotifications={setShowNotifications}
+              onMenuClick={() => setShowSidebar(true)}
+            />
+
+            {/* MAIN CONTENT AREA (Scrollable) */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 pb-20 scrollbar-hide bg-gray-50/50 min-h-0">
+              {currentTab === "home" && (
+                <HomeTab
+                  currentBanner={currentBanner}
+                  onCategoryClick={handleCategoryClick}
+                />
+              )}
+              {currentTab === "search" && <SearchTab />}
+              {currentTab === "heart" && <FavoritesTab />}
+              {currentTab === "user" && <ProfileTab />}
+            </div>
+          </>
+        )}
 
         {/* BOTTOM NAVIGATION BAR */}
-        <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-6 py-2 flex justify-between items-end h-[85px] rounded-t-[32px] z-30">
+        <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 flex justify-between items-end h-[70px] sm:h-[80px] rounded-t-[24px] sm:rounded-t-[32px] z-30 safe-area-inset-bottom flex-shrink-0">
           <NavItem
             icon={<Home className="w-6 h-6" />}
             label="Trang chủ"

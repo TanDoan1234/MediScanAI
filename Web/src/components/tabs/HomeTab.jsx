@@ -4,9 +4,9 @@ import BannerSlider from '../BannerSlider';
 import CategoryGrid from '../CategoryGrid';
 import HealthInfoCards from '../HealthInfoCards';
 
-export default function HomeTab({ currentBanner }) {
+export default function HomeTab({ currentBanner, onCategoryClick }) {
   return (
-    <div className="animate-in fade-in duration-300">
+    <div className="animate-in fade-in duration-300 py-4">
       {/* Search Bar */}
       <div className="mb-5">
         <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm border border-gray-100 focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-50 transition-all group">
@@ -23,7 +23,7 @@ export default function HomeTab({ currentBanner }) {
       <BannerSlider currentBanner={currentBanner} />
 
       {/* Categories Grid */}
-      <CategoryGrid />
+      <CategoryGrid onCategoryClick={onCategoryClick} />
 
       {/* Useful Health Info Section */}
       <HealthInfoCards />
