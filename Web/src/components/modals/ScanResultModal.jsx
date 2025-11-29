@@ -167,11 +167,9 @@ export default function ScanResultModal({ onClose, result }) {
     else if (result.success && !hasSpokenRef.current) {
       hasSpokenRef.current = true;
 
-      // Tạo thông báo đầy đủ: Tên, Phân loại, Cách dùng, Khuyến nghị
+      // Tạo thông báo đầy đủ: Tên, Phân loại, Khuyến nghị
       const drugName = result.drug_name || "Không xác định";
       const category = result.category ? `Phân loại: ${result.category}` : "";
-      const usage = result.usage || result.dosage || "";
-      const notes = result.notes || "";
       const recommendations = result.recommendations || [];
 
       // Tạo text để đọc
@@ -179,20 +177,6 @@ export default function ScanResultModal({ onClose, result }) {
 
       if (category) {
         fullText += ` ${category}.`;
-      }
-
-      if (usage) {
-        // Rút ngắn cách dùng nếu quá dài
-        const usageShort =
-          usage.length > 150 ? usage.substring(0, 150) + "..." : usage;
-        fullText += ` Cách dùng: ${usageShort}.`;
-      }
-
-      if (notes) {
-        // Rút ngắn lưu ý nếu quá dài
-        const notesShort =
-          notes.length > 150 ? notes.substring(0, 150) + "..." : notes;
-        fullText += ` Lưu ý: ${notesShort}.`;
       }
 
       if (recommendations.length > 0) {
@@ -355,26 +339,10 @@ export default function ScanResultModal({ onClose, result }) {
                 const category = result.category
                   ? `Phân loại: ${result.category}`
                   : "";
-                const usage = result.usage || result.dosage || "";
-                const notes = result.notes || "";
                 const recommendations = result.recommendations || [];
 
                 let text = `Tên thuốc: ${drugName}.`;
                 if (category) text += ` ${category}.`;
-                if (usage) {
-                  const usageShort =
-                    usage.length > 150
-                      ? usage.substring(0, 150) + "..."
-                      : usage;
-                  text += ` Cách dùng: ${usageShort}.`;
-                }
-                if (notes) {
-                  const notesShort =
-                    notes.length > 150
-                      ? notes.substring(0, 150) + "..."
-                      : notes;
-                  text += ` Lưu ý: ${notesShort}.`;
-                }
                 if (recommendations.length > 0) {
                   text += ` Khuyến nghị: ${recommendations
                     .slice(0, 2)
@@ -455,30 +423,6 @@ export default function ScanResultModal({ onClose, result }) {
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.dosage}
-                </p>
-              </div>
-            )}
-
-            {result.usage && (
-              <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block mb-1 flex items-center gap-1">
-                  <Info className="w-3 h-3" />
-                  CÁCH DÙNG
-                </span>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.usage}
-                </p>
-              </div>
-            )}
-
-            {result.notes && (
-              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200">
-                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  LƯU Ý
-                </span>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.notes}
                 </p>
               </div>
             )}
