@@ -5,8 +5,10 @@ from api.utils import (
     decode_base64_image,
     preprocess_image,
     extract_text_from_image,
-    search_drug_in_database
+    search_drug_in_database,
+    extract_drug_details_from_pdf
 )
+import pandas as pd
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -44,28 +46,74 @@ class handler(BaseHTTPRequestHandler):
             
             # Process image
             processed_image = preprocess_image(image_array)
-            extracted_text = extract_text_from_image(processed_image)
             
-            # Search in database
-            drug_info = search_drug_in_database(extracted_text)
+            # Trích xuất text từ ảnh (OCR) - dùng ảnh gốc
+            extracted_text = extract_text_from_image(image_array)
             
-            if drug_info:
-                response = {
-                    'success': True,
-                    'drug_name': drug_info.get('DrugName', ''),
-                    'active_ingredient': drug_info.get('ActiveIngredient', ''),
-                    'page_number': str(drug_info.get('PageNumber', '')),
-                    'extracted_text': extracted_text,
-                    'rx_status': 'OTC'
-                }
-                status_code = 200
-            else:
+            if not extracted_text:
                 response = {
                     'success': False,
-                    'message': 'Không tìm thấy thông tin thuốc trong database',
-                    'extracted_text': extracted_text
+                    'message': 'Không thể nhận diện text từ ảnh. Vui lòng thử lại với ảnh rõ hơn.',
+                    'extracted_text': ''
                 }
-                status_code = 404
+                status_code = 400
+            else:
+                print(f"📝 Text nhận diện được: {extracted_text}")
+                
+                # Search in database
+                drug_info = search_drug_in_database(extracted_text)
+                
+                if drug_info:
+                    # KIỂM TRA AN TOÀN: Nếu là thuốc kê đơn (Is_Prescription = True), chặn lại
+                    is_prescription = drug_info.get('Is_Prescription', False)
+                
+                # Chuyển đổi giá trị boolean từ CSV
+                if isinstance(is_prescription, str):
+                    is_prescription = is_prescription.lower() in ['true', '1', 'yes']
+                elif pd.isna(is_prescription):
+                    is_prescription = False
+                
+                if is_prescription:
+                    response = {
+                        'success': False,
+                        'error': 'PRESCRIPTION_REQUIRED',
+                        'message': '⚠️ Đây là thuốc kê đơn. Vui lòng sử dụng theo chỉ định của bác sĩ.',
+                        'drug_name': drug_info.get('DrugName', ''),
+                        'active_ingredient': drug_info.get('ActiveIngredient', ''),
+                        'category': drug_info.get('Category', ''),
+                        'extracted_text': extracted_text
+                    }
+                    status_code = 403  # 403 Forbidden
+                else:
+                    # Nếu là thuốc OTC, tiếp tục tra cứu thông tin chi tiết từ PDF
+                    page_number = drug_info.get('PageNumber', '')
+                    pdf_details = {}
+                    
+                    if page_number:
+                        pdf_details = extract_drug_details_from_pdf(page_number)
+                    
+                    response = {
+                        'success': True,
+                        'drug_name': drug_info.get('DrugName', ''),
+                        'active_ingredient': drug_info.get('ActiveIngredient', ''),
+                        'page_number': str(page_number),
+                        'category': drug_info.get('Category', ''),
+                        'extracted_text': extracted_text,
+                        'rx_status': 'OTC',
+                        'composition': pdf_details.get('composition', ''),
+                        'indications': pdf_details.get('indications', ''),
+                        'contraindications': pdf_details.get('contraindications', ''),
+                        'dosage': pdf_details.get('dosage', '')
+                    }
+                    status_code = 200
+                else:
+                    # Không tìm thấy trong database
+                    response = {
+                        'success': False,
+                        'message': 'Không tìm thấy thông tin thuốc trong database',
+                        'extracted_text': extracted_text
+                    }
+                    status_code = 404
             
             # Send response
             self.send_response(status_code)

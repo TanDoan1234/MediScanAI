@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap, ScanLine, Camera, Loader2 } from 'lucide-react';
+import { X, Zap, ScanLine, Camera, Loader2, Check, Edit2 } from 'lucide-react';
 import { API_URL } from '../utils/api';
+import OCRTextEditor from './OCRTextEditor';
 
 export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
   const [progress, setProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [ocrResult, setOcrResult] = useState(null); // Lưu kết quả OCR
+  const [showOCRText, setShowOCRText] = useState(false); // Hiển thị text OCR
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
@@ -94,16 +97,28 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
 
       const result = await response.json();
 
-      if (result.success) {
-        // Truyền kết quả lên component cha
-        if (onScanResult) {
-          onScanResult(result);
-        }
+      // Luôn truyền kết quả lên component cha (bao gồm OCR data)
+      if (onScanResult) {
+        onScanResult(result);
+      }
+
+      // Hiển thị text OCR ngay trên camera
+      if (result.extracted_text || result.all_ocr_texts) {
+        setOcrResult({
+          extracted_text: result.extracted_text || '',
+          all_ocr_texts: result.all_ocr_texts || []
+        });
+        setShowOCRText(true);
+        setIsScanning(false);
+        setProgress(0);
+      } else if (result.error === 'PRESCRIPTION_REQUIRED') {
+        // Thuốc kê đơn - hiển thị kết quả ngay
         setTimeout(() => {
           onComplete();
         }, 500);
       } else {
-        setError(result.message || 'Không tìm thấy thông tin thuốc');
+        // Lỗi không có OCR
+        setError(result.message || 'Không thể nhận diện text từ ảnh');
         setIsScanning(false);
         setProgress(0);
       }
@@ -203,8 +218,59 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
           </div>
         </div>
 
+        {/* OCR Result - Hiển thị text đã nhận diện ngay trên camera */}
+        {showOCRText && ocrResult && (
+          <div className="absolute top-20 left-0 right-0 px-6 z-20 animate-in slide-in-from-top-4 duration-300">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-2xl border-2 border-teal-400">
+              <OCRTextEditor 
+                initialText={ocrResult.extracted_text}
+                allTexts={ocrResult.all_ocr_texts}
+                onConfirm={(editedText) => {
+                  // Cập nhật text đã chỉnh sửa
+                  setOcrResult({ ...ocrResult, extracted_text: editedText });
+                }}
+                onClose={() => {
+                  setShowOCRText(false);
+                  setOcrResult(null);
+                }}
+                onSearch={async (searchText) => {
+                  // Tìm kiếm với text đã chỉnh sửa
+                  try {
+                    const response = await fetch(`${API_URL}/scan`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        text: searchText
+                      })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (onScanResult) {
+                      onScanResult({
+                        ...result,
+                        extracted_text: searchText,
+                        all_ocr_texts: ocrResult.all_ocr_texts
+                      });
+                    }
+                    
+                    setTimeout(() => {
+                      onComplete();
+                    }, 300);
+                  } catch (err) {
+                    console.error('Error searching:', err);
+                    setError('Lỗi khi tìm kiếm thuốc');
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Error message */}
-        {error && (
+        {error && !showOCRText && (
           <div className="absolute bottom-20 left-0 right-0 px-6">
             <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm text-center">
               {error}
@@ -226,23 +292,29 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       {/* Bottom controls */}
       <div className="flex flex-col items-center w-full px-6 pb-6 z-10">
         <span className="text-white text-base font-medium mb-4">
-          {isScanning ? `Đang quét AI... ${progress}%` : 'Đặt thuốc trong khung và chụp'}
+          {isScanning 
+            ? `Đang quét AI... ${progress}%` 
+            : showOCRText 
+              ? 'Kiểm tra text đã nhận diện ở trên' 
+              : 'Đặt thuốc trong khung và chụp'}
         </span>
-        <div className="flex justify-center w-full items-center">
-          <button
-            onClick={captureAndScan}
-            disabled={!cameraReady || isScanning}
-            className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
-              {isScanning ? (
-                <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
-              ) : (
-                <Camera className="w-6 h-6 text-teal-500" />
-              )}
-            </div>
-          </button>
-        </div>
+        {!showOCRText && (
+          <div className="flex justify-center w-full items-center">
+            <button
+              onClick={captureAndScan}
+              disabled={!cameraReady || isScanning}
+              className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
+                {isScanning ? (
+                  <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
+                ) : (
+                  <Camera className="w-6 h-6 text-teal-500" />
+                )}
+              </div>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
