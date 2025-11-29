@@ -3,13 +3,13 @@ import { healthInfos } from '../data/healthInfos.jsx';
 
 export default function HealthInfoCards() {
   return (
-    <div className="mb-4">
+    <div className="mb-4 lg:mb-6">
       <div className="flex justify-between items-end mb-3 px-1">
-        <h3 className="text-base font-bold text-gray-800">Thông tin sức khoẻ hữu ích</h3>
-        <span className="text-[11px] text-teal-600 font-semibold cursor-pointer">Xem tất cả</span>
+        <h3 className="text-base lg:text-lg font-bold text-gray-800">Thông tin sức khoẻ hữu ích</h3>
+        <span className="text-[11px] lg:text-sm text-teal-600 font-semibold cursor-pointer hover:text-teal-700 transition">Xem tất cả</span>
       </div>
       
-      <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 sm:-mx-5 px-4 sm:px-5 scrollbar-hide snap-x overscroll-x-contain">
+      <div className="flex overflow-x-auto gap-4 pb-4 lg:pb-6 -mx-4 sm:-mx-5 lg:mx-0 px-4 sm:px-5 lg:px-0 scrollbar-hide snap-x overscroll-x-contain">
         {healthInfos.map((info) => (
           <div key={info.id} className="min-w-[240px] bg-white p-4 rounded-2xl border border-gray-100 shadow-sm snap-center flex flex-col justify-between h-[130px]">
             <div>

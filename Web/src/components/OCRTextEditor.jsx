@@ -6,7 +6,10 @@ export default function OCRTextEditor({
   allTexts, 
   onConfirm, 
   onClose,
-  onSearch 
+  onSearch,
+  error = null,
+  message = null,
+  drugInfo = null
 }) {
   const [editedText, setEditedText] = useState(initialText || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -28,6 +31,30 @@ export default function OCRTextEditor({
 
   return (
     <div>
+      {/* Hiển thị thông báo lỗi nếu có */}
+      {(error || message) && (
+        <div className={`mb-3 p-3 rounded-lg ${
+          error === 'PRESCRIPTION_REQUIRED' 
+            ? 'bg-amber-50 border-2 border-amber-400' 
+            : 'bg-red-50 border-2 border-red-400'
+        }`}>
+          <div className={`text-sm font-bold ${
+            error === 'PRESCRIPTION_REQUIRED' ? 'text-amber-800' : 'text-red-800'
+          }`}>
+            {message || (error === 'PRESCRIPTION_REQUIRED' ? '⚠️ Đây là thuốc kê đơn' : '❌ Không tìm thấy thuốc')}
+          </div>
+          {drugInfo && (
+            <div className="text-xs text-gray-600 mt-1">
+              {drugInfo.drug_name && <div>Tên thuốc: {drugInfo.drug_name}</div>}
+              {drugInfo.active_ingredient && <div>Hoạt chất: {drugInfo.active_ingredient}</div>}
+            </div>
+          )}
+          <div className="text-xs text-gray-600 mt-2">
+            Vui lòng chọn hoặc sửa text từ danh sách OCR bên dưới để tìm lại.
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-start gap-3 mb-3">
         <div className="flex-1">
           <div className="text-xs font-bold text-teal-600 uppercase tracking-wider mb-1">

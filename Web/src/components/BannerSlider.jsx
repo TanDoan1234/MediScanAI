@@ -3,7 +3,7 @@ import { banners } from '../data/banners.jsx';
 
 export default function BannerSlider({ currentBanner }) {
   return (
-    <div className="relative w-full h-40 sm:h-44 lg:h-56 xl:h-64 mb-6 group rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+    <div className="relative w-full h-40 sm:h-44 lg:h-56 xl:h-64 mb-6 group rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm lg:max-w-4xl xl:max-w-5xl lg:mx-auto">
       {banners.map((banner, index) => (
         <div
           key={index}

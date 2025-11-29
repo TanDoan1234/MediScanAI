@@ -95,14 +95,36 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
 
       clearInterval(progressInterval);
       
-      // Kiểm tra response status
+      // Lấy kết quả response (có thể là success hoặc error)
+      const result = await response.json();
+      
+      // Nếu có all_ocr_texts (404 hoặc 403), hiển thị OCR editor để người dùng chọn và sửa
+      if (result.all_ocr_texts && (result.needs_ocr_confirm || !response.ok)) {
+        setProgress(100);
+        setOcrResult({
+          extracted_text: result.extracted_text || '',
+          all_ocr_texts: result.all_ocr_texts || [],
+          error: result.error || null,
+          message: result.message || null,
+          drug_info: result.drug_name ? {
+            drug_name: result.drug_name,
+            active_ingredient: result.active_ingredient,
+            category: result.category
+          } : null
+        });
+        setShowOCRText(true);
+        setIsScanning(false);
+        setProgress(0);
+        return;
+      }
+      
+      // Kiểm tra response status cho các lỗi khác
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+        const errorData = result;
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       setProgress(100);
-      const result = await response.json();
 
       // Luôn truyền kết quả lên component cha (bao gồm OCR data)
       if (onScanResult) {
@@ -202,14 +224,36 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
 
           clearInterval(progressInterval);
           
-          // Kiểm tra response status
+          // Lấy kết quả response (có thể là success hoặc error)
+          const result = await response.json();
+          
+          // Nếu có all_ocr_texts (404 hoặc 403), hiển thị OCR editor để người dùng chọn và sửa
+          if (result.all_ocr_texts && (result.needs_ocr_confirm || !response.ok)) {
+            setProgress(100);
+            setOcrResult({
+              extracted_text: result.extracted_text || '',
+              all_ocr_texts: result.all_ocr_texts || [],
+              error: result.error || null,
+              message: result.message || null,
+              drug_info: result.drug_name ? {
+                drug_name: result.drug_name,
+                active_ingredient: result.active_ingredient,
+                category: result.category
+              } : null
+            });
+            setShowOCRText(true);
+            setIsScanning(false);
+            setProgress(0);
+            return;
+          }
+          
+          // Kiểm tra response status cho các lỗi khác
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+            const errorData = result;
             throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
           }
 
           setProgress(100);
-          const result = await response.json();
 
           // Luôn truyền kết quả lên component cha (bao gồm OCR data)
           if (onScanResult) {
@@ -370,6 +414,9 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
               <OCRTextEditor 
                 initialText={ocrResult.extracted_text}
                 allTexts={ocrResult.all_ocr_texts}
+                error={ocrResult.error}
+                message={ocrResult.message}
+                drugInfo={ocrResult.drug_info}
                 onConfirm={(editedText) => {
                   // Cập nhật text đã chỉnh sửa
                   setOcrResult({ ...ocrResult, extracted_text: editedText });
@@ -435,7 +482,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       </div>
 
       {/* Bottom controls */}
-      <div className="flex flex-col items-center w-full px-6 pb-6 z-10">
+      <div className="flex flex-col items-center w-full px-6 pb-6 z-10" style={{ position: 'relative', zIndex: 20 }}>
         <span className="text-white text-base font-medium mb-4">
           {isScanning 
             ? `Đang quét AI... ${progress}%` 
@@ -444,12 +491,21 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
               : 'Đặt thuốc trong khung và chụp'}
         </span>
         {!showOCRText && (
-          <div className="flex justify-center w-full items-center relative">
-            {/* Upload button - góc dưới trái */}
+          <div className="flex justify-center w-full items-center relative" style={{ minHeight: '80px', position: 'relative', zIndex: 20 }}>
+            {/* Upload button - góc dưới trái - Chỉ hiển thị trên desktop */}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
               disabled={isScanning}
-              className="absolute left-0 p-3 rounded-full bg-white/20 text-white hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+              className="hidden lg:block absolute left-0 p-3 rounded-full bg-white/20 text-white hover:bg-white/30 active:bg-white/40 transition disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm touch-manipulation"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                zIndex: 20,
+                pointerEvents: 'auto'
+              }}
               title="Upload ảnh từ thư viện"
             >
               <Upload className="w-6 h-6" />
@@ -460,15 +516,22 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               onChange={handleFileUpload}
               className="hidden"
+              style={{ display: 'none' }}
             />
 
             {/* Capture button - giữa */}
             <button
               onClick={captureAndScan}
               disabled={!cameraReady || isScanning}
-              className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                zIndex: 21,
+                pointerEvents: 'auto'
+              }}
             >
               <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
                 {isScanning ? (

@@ -6,7 +6,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
   // Desktop: always visible, Mobile: overlay
   if (isDesktop) {
     return (
-      <div className="w-full h-full bg-gray-50 overflow-y-auto scrollbar-hide">
+      <div className="w-full h-full bg-gray-50 overflow-y-auto scrollbar-show">
         <div className="p-6 xl:p-8">
           {/* Header */}
           <div className="mb-8">

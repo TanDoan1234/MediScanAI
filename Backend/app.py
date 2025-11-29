@@ -314,60 +314,49 @@ def extract_text_from_image(image_array):
         # Sắp xếp candidate theo điểm số
         candidate_texts.sort(key=lambda x: x['score'], reverse=True)
         
-        # Cải thiện: Kết hợp các text gần nhau thành tên thuốc đầy đủ
-        # Tìm các text có thể là một phần của tên thuốc (có số %, chữ hoa, v.v.)
-        combined_candidates = []
-        
-        # Ưu tiên text có chứa số phần trăm (%)
-        percent_texts = [t for t in all_texts if '%' in t['text'] or '10' in t['text'] or '20' in t['text']]
-        
-        # Tìm text có vẻ là tên thuốc (chữ hoa, không phải từ thông thường)
+        # Tìm text có vẻ là tên thuốc (ưu tiên text dài, chữ hoa, confidence cao)
         drug_name_candidates = []
         for t in all_texts:
             text_upper = t['text'].upper()
+            text_clean = text_upper.strip()
+            
             # Loại bỏ text chỉ là số hoặc quá ngắn
-            if len(text_upper) >= 3 and not text_upper.replace(' ', '').replace('.', '').replace('%', '').isdigit():
-                # Kiểm tra xem có phải từ thông thường không
-                words = text_upper.split()
-                is_common = any(word in common_words for word in words if len(word) > 2)
-                if not is_common:
-                    drug_name_candidates.append(t)
-        
-        # Kết hợp text: Ưu tiên text có %, sau đó kết hợp với text khác gần nhau
-        if percent_texts and drug_name_candidates:
-            # Tìm text gần với text có %
-            for percent_text in percent_texts:
-                percent_center = (percent_text['center_x'], percent_text['center_y'])
-                # Tìm text gần nhất (trong vòng 200px)
-                nearby_texts = []
-                for candidate in drug_name_candidates:
-                    distance = ((candidate['center_x'] - percent_center[0])**2 + 
-                               (candidate['center_y'] - percent_center[1])**2)**0.5
-                    if distance < 200:  # Text trong vòng 200px
-                        nearby_texts.append((candidate, distance))
+            if len(text_clean) < 3:
+                continue
                 
-                # Sắp xếp theo khoảng cách
-                nearby_texts.sort(key=lambda x: x[1])
-                
-                # Kết hợp text gần nhau
-                if nearby_texts:
-                    combined = [percent_text['text']]
-                    for candidate, _ in nearby_texts[:2]:  # Lấy tối đa 2 text gần nhất
-                        if candidate['text'] not in combined:
-                            combined.append(candidate['text'])
-                    combined_text = ' '.join(combined)
-                    combined_candidates.append({
-                        'text': combined_text,
-                        'score': 0.9,  # Điểm cao cho text kết hợp
-                        'confidence': min(percent_text['confidence'], nearby_texts[0][0]['confidence'])
-                    })
+            # Loại bỏ text chỉ chứa số và ký tự đặc biệt (như "2,5mg", "10x 10~")
+            is_number_like = text_clean.replace(' ', '').replace('.', '').replace(',', '').replace('%', '').replace('x', '').replace('~', '').replace('mg', '').isdigit()
+            if is_number_like:
+                continue
+            
+            # Kiểm tra xem có phải từ thông thường không
+            words = text_clean.split()
+            is_common = any(word in common_words for word in words if len(word) > 2)
+            if not is_common:
+                # Tính điểm ưu tiên cho tên thuốc: dài, confidence cao, có chữ hoa
+                has_uppercase = any(c.isupper() for c in text_clean)
+                length_score = min(len(text_clean) / 15, 1)  # Ưu tiên text dài vừa phải (tối đa 15 ký tự)
+                drug_score = (
+                    t['confidence'] * 0.5 +  # 50% từ confidence
+                    length_score * 0.3 +  # 30% từ độ dài
+                    (0.2 if has_uppercase else 0)  # 20% nếu có chữ hoa
+                )
+                drug_name_candidates.append({
+                    'text': t['text'],
+                    'score': drug_score,
+                    'confidence': t['confidence']
+                })
         
-        # Nếu có text kết hợp, ưu tiên nó
-        if combined_candidates:
-            combined_candidates.sort(key=lambda x: x['score'], reverse=True)
-            selected_text = combined_candidates[0]['text']
+        # Sắp xếp drug_name_candidates theo điểm số
+        drug_name_candidates.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Ưu tiên chọn tên thuốc có điểm cao nhất
+        if drug_name_candidates and drug_name_candidates[0]['confidence'] >= 0.5:
+            selected_text = drug_name_candidates[0]['text']
+            print(f"✅ Chọn tên thuốc: '{selected_text}' (score: {drug_name_candidates[0]['score']:.2f}, confidence: {drug_name_candidates[0]['confidence']:.2f})")
         elif candidate_texts:
             selected_text = candidate_texts[0]['text']
+            print(f"✅ Chọn candidate: '{selected_text}' (score: {candidate_texts[0]['score']:.2f})")
         else:
             # Nếu không có candidate, chọn text dài nhất không phải từ thông thường
             filtered = [t for t in all_texts if not any(w in common_words for w in t['text'].upper().split())]
@@ -375,6 +364,7 @@ def extract_text_from_image(image_array):
                 selected_text = max(filtered, key=lambda x: len(x['text']))['text']
             else:
                 selected_text = max(all_texts, key=lambda x: len(x['text']))['text']
+            print(f"✅ Chọn text dài nhất: '{selected_text}'")
         
         # Trả về text đã chọn và danh sách tất cả text
         all_texts_list = [t['text'] for t in all_texts]
@@ -940,7 +930,8 @@ def scan_drug():
                     'active_ingredient': drug_info.get('ActiveIngredient', ''),
                     'category': drug_info.get('Category', ''),
                     'extracted_text': extracted_text,
-                    'all_ocr_texts': all_ocr_texts  # Trả về tất cả text OCR
+                    'all_ocr_texts': all_ocr_texts,  # Trả về tất cả text OCR
+                    'needs_ocr_confirm': True  # Flag để frontend hiển thị OCR editor
                 }), 403  # 403 Forbidden
             
             # Nếu là thuốc OTC, tiếp tục tra cứu thông tin chi tiết từ PDF

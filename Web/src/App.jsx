@@ -99,7 +99,10 @@ export default function MediScanApp() {
 
   return (
     <div className="h-screen bg-gray-100 flex justify-center items-center pt-2 sm:pt-4 lg:pt-0 pb-2 sm:pb-4 lg:pb-0 font-sans select-none overflow-hidden">
-      <div className="w-full max-w-md lg:max-w-full lg:w-full h-full lg:h-screen bg-white lg:shadow-none rounded-[24px] sm:rounded-[32px] lg:rounded-none overflow-hidden relative flex flex-col lg:flex-row border border-gray-200 lg:border-0">
+      <div
+        className="w-full max-w-md lg:max-w-full lg:w-full h-full lg:h-screen bg-white lg:shadow-none rounded-[24px] sm:rounded-[32px] lg:rounded-none relative flex flex-col lg:flex-row border border-gray-200 lg:border-0"
+        style={{ paddingBottom: window.innerWidth < 1024 ? "70px" : "0" }}
+      >
         {/* SIDEBAR - Mobile: Overlay, Desktop: Always visible */}
         <div className="hidden lg:flex lg:w-64 xl:w-72 bg-gray-50 border-r border-gray-200 flex-shrink-0">
           <Sidebar
@@ -124,14 +127,14 @@ export default function MediScanApp() {
 
         {/* CATEGORY DETAIL PAGE */}
         {selectedCategory ? (
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <CategoryDetailPage
               category={selectedCategory}
               onBack={handleBackFromCategory}
             />
           </div>
         ) : (
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* HEADER */}
             <Header
               showNotifications={showNotifications}
@@ -141,7 +144,10 @@ export default function MediScanApp() {
             />
 
             {/* MAIN CONTENT AREA (Scrollable) */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 lg:px-8 xl:px-10 pb-20 lg:pb-6 scrollbar-hide bg-gray-50/50 min-h-0">
+            <div
+              className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 lg:px-8 xl:px-10 pb-20 lg:pb-6 scrollbar-show bg-gray-50/50 min-h-0"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               {currentTab === "home" && (
                 <HomeTab
                   currentBanner={currentBanner}
@@ -156,7 +162,16 @@ export default function MediScanApp() {
         )}
 
         {/* BOTTOM NAVIGATION BAR - Hidden on desktop, shown on mobile */}
-        <div className="lg:hidden absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 flex justify-between items-end h-[70px] sm:h-[80px] rounded-t-[24px] sm:rounded-t-[32px] z-30 safe-area-inset-bottom flex-shrink-0">
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 flex justify-between items-end h-[70px] sm:h-[80px] rounded-t-[24px] sm:rounded-t-[32px] z-[100] safe-area-inset-bottom flex-shrink-0"
+          style={{
+            paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))",
+            transform: "translateZ(0)",
+            WebkitTransform: "translateZ(0)",
+            willChange: "transform",
+            backfaceVisibility: "hidden",
+          }}
+        >
           <NavItem
             icon={<Home className="w-6 h-6" />}
             label="Trang chủ"
@@ -171,15 +186,24 @@ export default function MediScanApp() {
           />
 
           {/* SCAN BUTTON (Center Floating) */}
-          <div className="relative -top-8 group z-40">
+          <div
+            className="relative -top-8 group"
+            style={{ zIndex: 101, pointerEvents: "auto" }}
+          >
             <button
               onClick={handleScanClick}
-              className="w-16 h-16 bg-gradient-to-tr from-teal-400 to-cyan-500 rounded-full shadow-[0_8px_25px_rgba(45,212,191,0.5)] flex flex-col items-center justify-center text-white border-4 border-white transform transition-all duration-300 group-hover:scale-110 group-active:scale-95"
+              className="w-16 h-16 bg-gradient-to-tr from-teal-400 to-cyan-500 rounded-full shadow-[0_8px_25px_rgba(45,212,191,0.5)] flex flex-col items-center justify-center text-white border-4 border-white transform transition-all duration-300 group-hover:scale-110 group-active:scale-95 touch-manipulation"
+              style={{
+                WebkitTapHighlightColor: "transparent",
+                position: "relative",
+                zIndex: 101,
+                pointerEvents: "auto",
+              }}
             >
               <ScanLine className="w-7 h-7 mb-0.5" />
               <span className="text-[9px] font-bold tracking-wider">SCAN</span>
             </button>
-            <div className="absolute top-0 left-0 w-16 h-16 bg-teal-400 rounded-full opacity-0 animate-ping -z-10 group-hover:opacity-30"></div>
+            <div className="absolute top-0 left-0 w-16 h-16 bg-teal-400 rounded-full opacity-0 animate-ping -z-10 group-hover:opacity-30 pointer-events-none"></div>
           </div>
 
           <NavItem

@@ -56,7 +56,7 @@ export default function CategoryDetailPage({ category, onBack }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden min-w-0">
+    <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
       {/* Header */}
       <div className="bg-white shadow-sm flex-shrink-0 z-10 border-b border-gray-100">
         <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 py-3 lg:py-4">
@@ -88,7 +88,7 @@ export default function CategoryDetailPage({ category, onBack }) {
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4 lg:py-6 scrollbar-hide min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4 lg:py-6 scrollbar-show min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
