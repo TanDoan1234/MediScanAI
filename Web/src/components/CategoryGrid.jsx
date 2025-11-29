@@ -21,7 +21,11 @@ export default function CategoryGrid({ onCategoryClick }) {
             <div className="bg-teal-500 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-md shadow-teal-200 transition-all duration-300 ease-out group-hover:scale-105 group-hover:rotate-6 group-hover:shadow-xl group-hover:shadow-teal-500/40 mb-2 group-active:scale-95">
               {cat.icon}
             </div>
-            <span className="text-[10px] sm:text-[11px] text-center font-semibold text-gray-600 leading-tight px-1 line-clamp-2 min-h-[2.5em] flex items-center group-hover:text-teal-600 transition-colors">
+            <span className={`text-center font-semibold text-gray-600 leading-tight px-1 line-clamp-2 flex items-center justify-center group-hover:text-teal-600 transition-colors ${
+              language === 'en' 
+                ? 'text-[9px] sm:text-[10px] min-h-[2.8em]' 
+                : 'text-[10px] sm:text-[11px] min-h-[2.5em]'
+            }`}>
               {getTranslation(cat.nameKey, language)}
             </span>
           </button>

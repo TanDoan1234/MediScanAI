@@ -83,10 +83,14 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                   onClick={() => { onCategoryClick(cat); onClose(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-teal-50 hover:text-teal-600 transition group"
                 >
-                  <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition">
+                  <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition flex-shrink-0">
                     {React.cloneElement(cat.icon, { className: "w-5 h-5 text-white" })}
                   </div>
-                  <span className="font-medium">{getTranslation(cat.nameKey, language)}</span>
+                  <span className={`font-medium flex-1 min-w-0 ${
+                    language === 'en' ? 'text-xs' : 'text-sm'
+                  }`} style={{ wordBreak: 'break-word' }}>
+                    {getTranslation(cat.nameKey, language)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -186,10 +190,14 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                   onClick={() => { onCategoryClick(cat); onClose(); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-teal-50 hover:text-teal-600 transition group"
                 >
-                  <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition">
+                  <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition flex-shrink-0">
                     {React.cloneElement(cat.icon, { className: "w-5 h-5 text-white" })}
                   </div>
-                  <span className="font-medium">{getTranslation(cat.nameKey, language)}</span>
+                  <span className={`font-medium flex-1 min-w-0 ${
+                    language === 'en' ? 'text-xs' : 'text-sm'
+                  }`} style={{ wordBreak: 'break-word' }}>
+                    {getTranslation(cat.nameKey, language)}
+                  </span>
                 </button>
               ))}
             </div>

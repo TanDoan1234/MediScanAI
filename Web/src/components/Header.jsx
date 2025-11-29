@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Menu, Bell, Clock, ShieldCheck, ScanLine, Mail, Github, Linkedin, X, Languages } from 'lucide-react';
+import { Menu, Bell, Clock, ShieldCheck, ScanLine, Mail, Github, Linkedin, X, Languages, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../locales/translations';
 
 export default function Header({ showNotifications, setShowNotifications, onMenuClick, onScanClick }) {
   const [showContact, setShowContact] = useState(false);
+  const [isLoadingLanguage, setIsLoadingLanguage] = useState(false);
   const { language, toggleLanguage } = useLanguage();
   
   const toggleNotifications = () => {
@@ -14,6 +15,11 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
   const toggleContact = () => {
     setShowContact(!showContact);
     if (showNotifications) setShowNotifications(false); // Đóng notification khi mở contact
+  };
+  
+  const handleLanguageToggle = () => {
+    setIsLoadingLanguage(true);
+    toggleLanguage(() => setIsLoadingLanguage(true)); // onLoadingStart
   };
 
   return (
@@ -33,13 +39,35 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
       <div className="flex items-center gap-2 sm:gap-3">
         {/* TRANSLATE BUTTON */}
         <button
-          onClick={toggleLanguage}
-          className={`p-2 rounded-full transition ${language === 'en' ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
+          onClick={handleLanguageToggle}
+          disabled={isLoadingLanguage}
+          className={`p-2 rounded-full transition ${language === 'en' ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'} ${isLoadingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
           aria-label="Translate"
           title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
         >
-          <Languages className="w-5 h-5 sm:w-6 sm:h-6" />
+          {isLoadingLanguage ? (
+            <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
+          ) : (
+            <Languages className="w-5 h-5 sm:w-6 sm:h-6" />
+          )}
         </button>
+        
+        {/* LOADING POPUP */}
+        {isLoadingLanguage && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex flex-col items-center text-center">
+                <Loader2 className="w-12 h-12 text-teal-600 animate-spin mb-4" />
+                <h3 className="text-lg font-bold text-gray-800 mb-2">
+                  {language === 'vi' ? 'Đang chuyển sang tiếng Anh...' : 'Switching to Vietnamese...'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {language === 'vi' ? 'Vui lòng đợi trong giây lát' : 'Please wait a moment'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* CONTACT BUTTON */}
         <div className="relative">

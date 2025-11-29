@@ -120,9 +120,9 @@ export default function CategoryDetailPage({ category, onBack }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-800 mb-1 lg:mb-2 text-sm lg:text-base truncate">{drug.DrugName || 'N/A'}</h3>
+                      <h3 className="font-bold text-gray-800 mb-1 lg:mb-2 text-sm lg:text-base truncate">{drug.DrugName || (language === 'en' ? 'N/A' : 'N/A')}</h3>
                       <p className="text-sm lg:text-base text-gray-600 mb-2 lg:mb-3 line-clamp-2">
-                        {drug.ActiveIngredient || 'Chưa có thông tin'}
+                        {drug.ActiveIngredient || (language === 'en' ? 'No information' : 'Chưa có thông tin')}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {drug.Category && (
@@ -132,7 +132,7 @@ export default function CategoryDetailPage({ category, onBack }) {
                         )}
                         {drug.Is_Prescription && (
                           <span className="inline-block px-2 py-1 bg-red-50 text-red-600 text-xs lg:text-sm font-bold rounded-lg">
-                            Kê đơn
+                            {language === 'en' ? 'Prescription' : 'Kê đơn'}
                           </span>
                         )}
                       </div>

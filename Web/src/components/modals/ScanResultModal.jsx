@@ -20,6 +20,99 @@ import { getTranslation } from "../../locales/translations";
 export default function ScanResultModal({ onClose, result }) {
   const { language } = useLanguage();
   const hasSpokenRef = useRef(false);
+  const voicesLoadedRef = useRef(false);
+
+  // Hàm dịch các text thường gặp từ tiếng Việt sang tiếng Anh
+  const translateContent = (text) => {
+    if (!text || language === "vi") return text;
+
+    // Dictionary cho các từ/cụm từ thường gặp (sắp xếp theo độ dài, dài trước)
+    const translations = {
+      // Full phrases (dài nhất trước)
+      "Thuốc giảm đau hạ sốt nên uống sau khi ăn để tránh kích ứng dạ dày":
+        "Pain and fever reducing medicine should be taken after meals to avoid stomach irritation",
+      "Nếu có bất kỳ dấu hiệu bất thường nào, hãy ngừng sử dụng và tham khảo ý kiến bác sĩ":
+        "If there are any abnormal signs, stop using and consult a doctor",
+      "bất kỳ dấu hiệu bất thường nào": "any abnormal signs",
+      "ngừng sử dụng và tham khảo ý kiến bác sĩ":
+        "stop using and consult a doctor",
+      "Thuốc giảm đau hạ sốt": "Pain and fever reducing medicine",
+      "nên uống sau khi ăn": "should be taken after meals",
+      "để tránh kích ứng dạ dày": "to avoid stomach irritation",
+      "Giảm đau; hạ sốt": "Pain relief; fever reduction",
+      "Thuốc giải độc paracetamol": "Paracetamol antidote",
+      "Thuốc kê đơn": "Prescription medicine",
+      "Không kê đơn": "Over-the-counter",
+
+      // Category translations
+      "Giảm đau": "Pain relief",
+      "hạ sốt": "fever reduction",
+      "Giảm đau hạ sốt": "Pain and fever relief",
+
+      // Common medical terms
+      "được dùng": "used",
+      "dưới dạng": "in the form of",
+      "muối natri": "sodium salt",
+      "sau khi ăn": "after meals",
+      "tránh kích ứng": "avoid irritation",
+      "dạ dày": "stomach",
+      "ngừng sử dụng": "stop using",
+      "tham khảo ý kiến bác sĩ": "consult a doctor",
+      "Chưa có thông tin": "No information available",
+      "N/A": "N/A",
+
+      // Common words
+      nên: "should",
+      để: "to",
+      tránh: "avoid",
+      nếu: "if",
+      có: "have",
+      và: "and",
+    };
+
+    // Thử tìm exact match trước
+    if (translations[text.trim()]) {
+      return translations[text.trim()];
+    }
+
+    // Thử tìm partial match và thay thế (theo thứ tự từ dài đến ngắn)
+    let translatedText = text;
+    const sortedKeys = Object.keys(translations).sort(
+      (a, b) => b.length - a.length
+    );
+
+    sortedKeys.forEach((key) => {
+      const regex = new RegExp(
+        key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "gi"
+      );
+      translatedText = translatedText.replace(regex, translations[key]);
+    });
+
+    return translatedText;
+  };
+
+  // Đảm bảo voices được load khi component mount
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        voicesLoadedRef.current = true;
+      }
+    };
+
+    // Thử load ngay
+    loadVoices();
+
+    // Lắng nghe event voiceschanged
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Hàm phát hiện text tiếng Anh (chứa chữ cái Latin không dấu)
   const isEnglishText = (text) => {
@@ -92,55 +185,160 @@ export default function ScanResultModal({ onClose, result }) {
     return parts;
   };
 
+  // Hàm tìm voice tốt nhất cho ngôn ngữ
+  const getBestVoice = (lang) => {
+    if (!("speechSynthesis" in window)) return null;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    // Ưu tiên các voice có tên chứa từ khóa phù hợp
+    const preferredKeywords = {
+      "vi-VN": ["vietnamese", "vi", "vietnam"],
+      "en-US": ["english", "en", "us", "american", "google", "microsoft"],
+    };
+
+    const keywords = preferredKeywords[lang] || [];
+
+    // Tìm voice phù hợp với ngôn ngữ
+    let bestVoice = voices.find(
+      (voice) =>
+        voice.lang.startsWith(lang.split("-")[0]) &&
+        keywords.some((keyword) =>
+          voice.name.toLowerCase().includes(keyword.toLowerCase())
+        )
+    );
+
+    // Nếu không tìm thấy, tìm voice có lang phù hợp
+    if (!bestVoice) {
+      bestVoice = voices.find((voice) =>
+        voice.lang.startsWith(lang.split("-")[0])
+      );
+    }
+
+    // Nếu vẫn không tìm thấy, tìm voice có lang gần nhất
+    if (!bestVoice) {
+      const langPrefix = lang.split("-")[0];
+      bestVoice = voices.find((voice) => voice.lang.startsWith(langPrefix));
+    }
+
+    // Fallback: chọn voice đầu tiên có sẵn
+    return bestVoice || voices[0];
+  };
+
   // Hàm đọc text hỗn hợp với ngôn ngữ phù hợp
   const speakMixedText = (text, options = {}) => {
     if (!("speechSynthesis" in window)) return;
 
-    // Dừng bất kỳ lời nói nào đang phát
-    window.speechSynthesis.cancel();
-
-    // Tách text thành các phần
-    const parts = splitMixedText(text);
-
-    if (parts.length === 0) return;
-
-    // Nếu chỉ có 1 phần, đọc trực tiếp
-    if (parts.length === 1) {
-      const part = parts[0];
-      const utterance = new SpeechSynthesisUtterance(part.text);
-      utterance.lang = part.isEnglish ? "en-US" : options.lang || "vi-VN";
-      utterance.rate = options.rate || 1.0;
-      utterance.pitch = options.pitch || 1.0;
-      utterance.volume = options.volume || 1.0;
-      window.speechSynthesis.speak(utterance);
-      return;
-    }
-
-    // Đọc từng phần với ngôn ngữ phù hợp
-    let currentIndex = 0;
-
-    const speakNext = () => {
-      if (currentIndex >= parts.length) return;
-
-      const part = parts[currentIndex];
-      const utterance = new SpeechSynthesisUtterance(part.text);
-      utterance.lang = part.isEnglish ? "en-US" : options.lang || "vi-VN";
-      utterance.rate = options.rate || 1.0;
-      utterance.pitch = options.pitch || 1.0;
-      utterance.volume = options.volume || 1.0;
-
-      utterance.onend = () => {
-        currentIndex++;
-        if (currentIndex < parts.length) {
-          // Đợi một chút trước khi đọc phần tiếp theo
-          setTimeout(speakNext, 50);
-        }
-      };
-
-      window.speechSynthesis.speak(utterance);
+    // Đảm bảo voices đã được load
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) {
+        // Nếu chưa có voices, đợi một chút rồi thử lại
+        setTimeout(loadVoices, 100);
+        return;
+      }
+      performSpeak();
     };
 
-    speakNext();
+    const performSpeak = () => {
+      // Dừng bất kỳ lời nói nào đang phát
+      window.speechSynthesis.cancel();
+
+      // Nếu ngôn ngữ web là tiếng Anh, đọc tất cả bằng tiếng Anh
+      if (language === "en") {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "en-US";
+
+        // Tìm voice tốt nhất cho tiếng Anh
+        const bestVoice = getBestVoice("en-US");
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+
+        // Điều chỉnh tham số để giọng nói tự nhiên hơn
+        utterance.rate = options.rate || 0.9;
+        utterance.pitch = options.pitch || 1.0;
+        utterance.volume = options.volume || 1.0;
+
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+
+      // Nếu ngôn ngữ web là tiếng Việt, phân biệt phần tiếng Việt và tiếng Anh
+      // Tách text thành các phần
+      const parts = splitMixedText(text);
+
+      if (parts.length === 0) return;
+
+      // Nếu chỉ có 1 phần, đọc trực tiếp
+      if (parts.length === 1) {
+        const part = parts[0];
+        const lang = part.isEnglish ? "en-US" : "vi-VN";
+        const utterance = new SpeechSynthesisUtterance(part.text);
+        utterance.lang = lang;
+
+        // Tìm voice tốt nhất
+        const bestVoice = getBestVoice(lang);
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+
+        // Điều chỉnh tham số để giọng nói tự nhiên hơn
+        utterance.rate = options.rate || 0.9; // Chậm hơn một chút để rõ ràng
+        utterance.pitch = options.pitch || 1.0; // Cao độ tự nhiên
+        utterance.volume = options.volume || 1.0; // Âm lượng đầy đủ
+
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+
+      // Đọc từng phần với ngôn ngữ phù hợp
+      let currentIndex = 0;
+
+      const speakNext = () => {
+        if (currentIndex >= parts.length) return;
+
+        const part = parts[currentIndex];
+        // Phần tiếng Anh đọc tiếng Anh, phần tiếng Việt đọc tiếng Việt
+        const lang = part.isEnglish ? "en-US" : "vi-VN";
+        const utterance = new SpeechSynthesisUtterance(part.text);
+        utterance.lang = lang;
+
+        // Tìm voice tốt nhất cho mỗi phần
+        const bestVoice = getBestVoice(lang);
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
+
+        // Điều chỉnh tham số để giọng nói tự nhiên hơn
+        utterance.rate = options.rate || 0.9;
+        utterance.pitch = options.pitch || 1.0;
+        utterance.volume = options.volume || 1.0;
+
+        utterance.onend = () => {
+          currentIndex++;
+          if (currentIndex < parts.length) {
+            // Đợi một chút trước khi đọc phần tiếp theo
+            setTimeout(speakNext, 100);
+          }
+        };
+
+        window.speechSynthesis.speak(utterance);
+      };
+
+      speakNext();
+    };
+
+    // Kiểm tra xem voices đã sẵn sàng chưa
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      performSpeak();
+    } else {
+      // Nếu chưa có voices, đợi event voiceschanged
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
   };
 
   // Hàm đọc text đơn giản (backward compatible)
@@ -160,9 +358,14 @@ export default function ScanResultModal({ onClose, result }) {
     if (result.error === "PRESCRIPTION_REQUIRED" && !hasSpokenRef.current) {
       hasSpokenRef.current = true;
       setTimeout(() => {
-        const warningText = `Cảnh báo. Đây là thuốc kê đơn. ${
-          result.drug_name || "Thuốc này"
-        } cần được sử dụng theo chỉ định của bác sĩ.`;
+        const warningText =
+          language === "en"
+            ? `Warning. This is a prescription drug. ${
+                result.drug_name || "This medicine"
+              } should be used as directed by your doctor.`
+            : `Cảnh báo. Đây là thuốc kê đơn. ${
+                result.drug_name || "Thuốc này"
+              } cần được sử dụng theo chỉ định của bác sĩ.`;
         speakText(warningText);
       }, 500);
     }
@@ -171,12 +374,20 @@ export default function ScanResultModal({ onClose, result }) {
       hasSpokenRef.current = true;
 
       // Tạo thông báo đầy đủ: Tên, Phân loại, Khuyến nghị
-      const drugName = result.drug_name || "Không xác định";
-      const category = result.category ? `Phân loại: ${result.category}` : "";
+      const drugName =
+        result.drug_name || (language === "en" ? "Unknown" : "Không xác định");
+      const category = result.category
+        ? language === "en"
+          ? `Category: ${result.category}`
+          : `Phân loại: ${result.category}`
+        : "";
       const recommendations = result.recommendations || [];
 
-      // Tạo text để đọc
-      let fullText = `Tên thuốc: ${drugName}.`;
+      // Tạo text để đọc theo ngôn ngữ web hiện tại
+      let fullText =
+        language === "en"
+          ? `Drug name: ${drugName}.`
+          : `Tên thuốc: ${drugName}.`;
 
       if (category) {
         fullText += ` ${category}.`;
@@ -185,7 +396,10 @@ export default function ScanResultModal({ onClose, result }) {
       if (recommendations.length > 0) {
         // Đọc 2 khuyến nghị đầu tiên
         const recText = recommendations.slice(0, 2).join(" ");
-        fullText += ` Khuyến nghị: ${recText}.`;
+        fullText +=
+          language === "en"
+            ? ` Recommendations: ${recText}.`
+            : ` Khuyến nghị: ${recText}.`;
       }
 
       // Đợi một chút để modal hiển thị xong rồi mới nói
@@ -249,7 +463,9 @@ export default function ScanResultModal({ onClose, result }) {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
                     {getTranslation("category", language).toUpperCase()}
                   </span>
-                  <p className="text-sm text-gray-700">{result.category}</p>
+                  <p className="text-sm text-gray-700">
+                    {translateContent(result.category)}
+                  </p>
                 </div>
               )}
             </div>
@@ -290,8 +506,11 @@ export default function ScanResultModal({ onClose, result }) {
     );
   }
 
-  const drugName = result.drug_name || "Không xác định";
-  const activeIngredient = result.active_ingredient || "Chưa có thông tin";
+  const drugName =
+    result.drug_name || (language === "en" ? "Unknown" : "Không xác định");
+  const activeIngredient =
+    result.active_ingredient ||
+    (language === "en" ? "No information" : "Chưa có thông tin");
   const pageNumber = result.page_number || "";
   const rxStatus = result.rx_status || "OTC";
 
@@ -395,7 +614,7 @@ export default function ScanResultModal({ onClose, result }) {
                   {getTranslation("category", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.category}
+                  {translateContent(result.category)}
                 </p>
               </div>
             )}
@@ -407,7 +626,7 @@ export default function ScanResultModal({ onClose, result }) {
                   {getTranslation("composition", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.composition}
+                  {translateContent(result.composition)}
                 </p>
               </div>
             )}
@@ -419,7 +638,7 @@ export default function ScanResultModal({ onClose, result }) {
                   {getTranslation("indications", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.indications}
+                  {translateContent(result.indications)}
                 </p>
               </div>
             )}
@@ -431,7 +650,7 @@ export default function ScanResultModal({ onClose, result }) {
                   {getTranslation("contraindications", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.contraindications}
+                  {translateContent(result.contraindications)}
                 </p>
               </div>
             )}
@@ -443,7 +662,7 @@ export default function ScanResultModal({ onClose, result }) {
                   {getTranslation("dosage", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  {result.dosage}
+                  {translateContent(result.dosage)}
                 </p>
               </div>
             )}
@@ -463,7 +682,7 @@ export default function ScanResultModal({ onClose, result }) {
                       <span className="text-yellow-600 font-bold mt-0.5">
                         •
                       </span>
-                      <span>{rec}</span>
+                      <span>{translateContent(rec)}</span>
                     </li>
                   ))}
                 </ul>
