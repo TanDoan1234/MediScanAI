@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Zap, ScanLine, Camera, Loader2, Check, Edit2 } from 'lucide-react';
-import { API_URL } from '../utils/api';
+import { getApiEndpoint } from '../utils/api';
 import OCRTextEditor from './OCRTextEditor';
 
 export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
@@ -82,7 +82,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       }, 100);
 
       // Gửi ảnh đến backend
-      const response = await fetch(`${API_URL}/scan`, {
+      const response = await fetch(getApiEndpoint('scan'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
                 onSearch={async (searchText) => {
                   // Tìm kiếm với text đã chỉnh sửa
                   try {
-                    const response = await fetch(`${API_URL}/scan`, {
+                    const response = await fetch(getApiEndpoint('scan'), {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
