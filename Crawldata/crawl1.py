@@ -1,5 +1,6 @@
 import csv
 import re
+import os
 from pypdf import PdfReader
 
 def extract_drug_index(pdf_path, start_page, end_page, output_csv):
@@ -43,10 +44,12 @@ def extract_drug_index(pdf_path, start_page, end_page, output_csv):
 
 # --- CẤU HÌNH ---
 # Đảm bảo tên file PDF trùng với tên file bạn đã tải về
-PDF_FILE = "duoc-thu-quoc-gia-viet-nam-2018.pdf" 
+# Lấy đường dẫn thư mục chứa script này
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PDF_FILE = os.path.join(SCRIPT_DIR, "duoc-thu-quoc-gia-viet-nam-2018.pdf")
 START_PAGE = 1600
 END_PAGE = 1668
-OUTPUT_FILE = "drug_index.csv"
+OUTPUT_FILE = os.path.join(SCRIPT_DIR, "drug_index.csv")
 
 if __name__ == "__main__":
     extract_drug_index(PDF_FILE, START_PAGE, END_PAGE, OUTPUT_FILE)
