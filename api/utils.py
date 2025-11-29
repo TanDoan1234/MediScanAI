@@ -6,6 +6,12 @@ from PIL import Image
 import io
 import pandas as pd
 import re
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("⚠️ google-generativeai không được cài đặt, Gemini sẽ không hoạt động")
 
 # Fix cho Pillow 10.0+ không còn Image.ANTIALIAS
 # EasyOCR và một số thư viện vẫn cần ANTIALIAS
@@ -145,17 +151,14 @@ def get_ocr_reader():
     return _ocr_reader
 
 def extract_text_from_image(image_array):
-    """Trích xuất text từ ảnh sử dụng EasyOCR"""
+    """Trích xuất text từ ảnh sử dụng EasyOCR, trả về (selected_text, all_ocr_texts)"""
     try:
         reader = get_ocr_reader()
         if reader is None:
-            # Fallback nếu OCR không khả dụng
-            return None
+            return None, []
         
         # EasyOCR cần ảnh ở dạng numpy array (BGR hoặc RGB)
-        # Chuyển đổi từ grayscale sang RGB nếu cần
         if len(image_array.shape) == 2:
-            # Grayscale -> RGB
             image_rgb = cv2.cvtColor(image_array, cv2.COLOR_GRAY2RGB)
         else:
             image_rgb = image_array
@@ -167,30 +170,26 @@ def extract_text_from_image(image_array):
         results = reader.readtext(image_bgr)
         
         if not results:
-            return None
+            return None, []
         
-        # Lấy tất cả text đã nhận diện, ưu tiên text có confidence cao
-        texts = []
+        # Lấy tất cả text đã nhận diện
+        all_texts = []
         for (bbox, text, confidence) in results:
             if confidence > 0.3:  # Chỉ lấy text có độ tin cậy > 30%
-                texts.append(text)
+                all_texts.append(text.strip())
         
-        if not texts:
-            return None
+        if not all_texts:
+            return None, []
         
-        # Kết hợp tất cả text thành một chuỗi
         # Ưu tiên text dài nhất (thường là tên thuốc)
-        combined_text = ' '.join(texts)
+        selected_text = max(all_texts, key=len) if all_texts else ' '.join(all_texts)
         
-        # Tìm text dài nhất (có thể là tên thuốc)
-        longest_text = max(texts, key=len) if texts else combined_text
-        
-        # Trả về text dài nhất hoặc kết hợp tất cả
-        return longest_text if len(longest_text) > 10 else combined_text
+        # Trả về text đã chọn và danh sách tất cả text
+        return selected_text, all_texts
         
     except Exception as e:
         print(f"⚠️ Lỗi OCR: {e}")
-        return None
+        return None, []
 
 def search_drug_in_database(drug_name):
     """Tìm kiếm thuốc trong database"""
@@ -221,6 +220,181 @@ def search_drug_in_database(drug_name):
                 return keyword_match.iloc[0].to_dict()
     
     return None
+
+def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
+    """
+    Sử dụng Gemini AI để đọc toàn bộ thông tin từ PDF và tổng hợp thành:
+    - Cách dùng (usage): Dễ hiểu, ngắn gọn
+    - Lưu ý (notes): Từ chống chỉ định, tương tác thuốc, tác dụng phụ
+    """
+    if not pdf_text or len(pdf_text.strip()) < 50:
+        return {'usage': '', 'notes': ''}
+    
+    if not GEMINI_AVAILABLE:
+        return {'usage': '', 'notes': ''}
+    
+    # Lấy API key từ environment variable
+    gemini_api_key = os.getenv('GEMINI_API_KEY')
+    if not gemini_api_key:
+        print("⚠️ GEMINI_API_KEY không được cấu hình, trả về rỗng")
+        return {'usage': '', 'notes': ''}
+    
+    try:
+        # Cấu hình Gemini
+        genai.configure(api_key=gemini_api_key)
+        # Sử dụng Gemini 2.0 Flash (model mới nhất, nhanh và chính xác)
+        try:
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        except Exception as e:
+            print(f"⚠️ Không thể dùng gemini-2.0-flash-exp, thử gemini-2.0-flash: {e}")
+            try:
+                model = genai.GenerativeModel('gemini-2.0-flash')
+            except Exception as e2:
+                print(f"⚠️ Không thể dùng gemini-2.0-flash, thử gemini-1.5-flash: {e2}")
+                model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Lấy thông tin bổ sung từ drug_info
+        category = drug_info.get('Category', '')
+        active_ingredient = drug_info.get('ActiveIngredient', '')
+        
+        # Giới hạn độ dài PDF text để tránh vượt quá token limit
+        # Tăng lên 4000 để có đủ context cho Gemini filter đúng thuốc
+        pdf_text_limited = pdf_text[:4000] if len(pdf_text) > 4000 else pdf_text
+        
+        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc
+        prompt = f"""Bạn là một dược sĩ chuyên nghiệp. Hãy đọc và tổng hợp thông tin từ Dược thư Quốc gia về thuốc CỤ THỂ sau:
+
+**THUỐC CẦN TÌM:**
+- Tên thuốc: {drug_name}
+- Hoạt chất: {active_ingredient}
+- Phân loại: {category}
+
+**LƯU Ý QUAN TRỌNG:**
+- Trang PDF có thể chứa thông tin của NHIỀU thuốc khác nhau
+- BẠN CHỈ ĐƯỢC tổng hợp thông tin về thuốc "{drug_name}" hoặc "{active_ingredient}"
+- BỎ QUA hoàn toàn thông tin về các thuốc khác (như Polymyxin, Polygelin, hoặc bất kỳ thuốc nào khác)
+- Nếu không tìm thấy thông tin về thuốc này, trả về "Không tìm thấy thông tin" thay vì thông tin của thuốc khác
+
+**Thông tin từ Dược thư (có thể chứa nhiều thuốc):**
+{pdf_text_limited}
+
+**YÊU CẦU:**
+1. Tổng hợp phần "CÁCH DÙNG" (usage) - CHỈ về thuốc "{drug_name}":
+   - Viết bằng ngôn ngữ đơn giản, dễ hiểu
+   - Tập trung vào: liều lượng, thời điểm uống, cách uống, tần suất
+   - Sử dụng câu ngắn gọn, rõ ràng
+   - Loại bỏ thuật ngữ y khoa phức tạp
+   - Nếu không có thông tin, viết: "Thông tin cách dùng không có trong dược thư"
+
+2. Tổng hợp phần "LƯU Ý" (notes) - CHỈ về thuốc "{drug_name}":
+   - Từ chống chỉ định: ai không nên dùng
+   - Tương tác thuốc: không dùng cùng với thuốc gì
+   - Tác dụng phụ: cần chú ý gì
+   - Đối tượng đặc biệt: phụ nữ có thai, trẻ em, người già
+   - Bảo quản: cách bảo quản thuốc
+   - Nếu không có thông tin, viết: "Thông tin lưu ý không có trong dược thư"
+
+**Trả về theo định dạng JSON:**
+{{
+  "usage": "Phần cách dùng đã tổng hợp (CHỈ về {drug_name})",
+  "notes": "Phần lưu ý đã tổng hợp (CHỈ về {drug_name})"
+}}
+
+**QUAN TRỌNG:** Chỉ trả về JSON, không thêm text khác. KHÔNG được trả về thông tin của thuốc khác."""
+        
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
+        
+        # Loại bỏ markdown code blocks nếu có
+        result_text = result_text.replace('```json', '').replace('```', '').strip()
+        
+        # Parse JSON
+        import json
+        try:
+            result = json.loads(result_text)
+            usage = result.get('usage', '').strip()
+            notes = result.get('notes', '').strip()
+            
+            # Kiểm tra xem có phải là thông báo lỗi không
+            if 'không tìm thấy' in usage.lower() or 'không có trong' in usage.lower():
+                usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
+            if 'không tìm thấy' in notes.lower() or 'không có trong' in notes.lower():
+                notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
+            
+            # Giới hạn độ dài
+            if len(usage) > 500:
+                usage = usage[:500] + "..."
+            if len(notes) > 600:
+                notes = notes[:600] + "..."
+            
+            print(f"✅ Đã tổng hợp thông tin với Gemini cho {drug_name}")
+            return {
+                'usage': usage,
+                'notes': notes
+            }
+        except json.JSONDecodeError:
+            # Nếu không parse được JSON, thử extract thủ công
+            print("⚠️ Không parse được JSON từ Gemini, thử extract thủ công")
+            # Tìm phần usage và notes trong text
+            usage_start = result_text.find('"usage"') or result_text.find('CÁCH DÙNG')
+            notes_start = result_text.find('"notes"') or result_text.find('LƯU Ý')
+            
+            if usage_start > -1 and notes_start > -1:
+                usage = result_text[usage_start:notes_start].replace('"usage":', '').strip('",')
+                notes = result_text[notes_start:].replace('"notes":', '').strip('",')
+                return {'usage': usage[:500], 'notes': notes[:600]}
+            else:
+                # Fallback: chia text làm 2 phần
+                parts = result_text.split('\n\n')
+                usage = parts[0] if len(parts) > 0 else ''
+                notes = parts[1] if len(parts) > 1 else ''
+                return {'usage': usage[:500], 'notes': notes[:600]}
+        
+    except Exception as e:
+        print(f"⚠️ Lỗi khi gọi Gemini API: {e}")
+        return {'usage': '', 'notes': ''}
+
+def generate_recommendations(drug_info, pdf_details):
+    """
+    Tạo khuyến nghị sử dụng thuốc dựa trên thông tin thuốc
+    """
+    recommendations = []
+    
+    # Khuyến nghị dựa trên phân loại
+    category = drug_info.get('Category', '').lower()
+    if 'kháng sinh' in category:
+        recommendations.append("Kháng sinh cần uống đủ liều và đủ thời gian theo chỉ định của bác sĩ, không tự ý ngừng thuốc.")
+    elif 'giảm đau' in category or 'hạ sốt' in category:
+        recommendations.append("Thuốc giảm đau hạ sốt nên uống sau khi ăn để tránh kích ứng dạ dày.")
+    elif 'chống viêm' in category:
+        recommendations.append("Thuốc chống viêm nên uống sau khi ăn và uống nhiều nước.")
+    elif 'vitamin' in category or 'bổ sung' in category:
+        recommendations.append("Vitamin và chất bổ sung nên uống theo liều lượng khuyến nghị, không lạm dụng.")
+    
+    # Khuyến nghị dựa trên chống chỉ định
+    contraindications = pdf_details.get('contraindications', '').lower()
+    if contraindications:
+        if 'phụ nữ có thai' in contraindications or 'mang thai' in contraindications:
+            recommendations.append("Không sử dụng cho phụ nữ có thai hoặc đang cho con bú nếu không có chỉ định của bác sĩ.")
+        if 'trẻ em' in contraindications or 'trẻ nhỏ' in contraindications:
+            recommendations.append("Cần thận trọng khi sử dụng cho trẻ em, nên tham khảo ý kiến bác sĩ.")
+    
+    # Khuyến nghị dựa trên cách dùng
+    usage = pdf_details.get('usage', '') or pdf_details.get('dosage', '')
+    if usage:
+        if 'sau khi ăn' in usage.lower() or 'sau bữa ăn' in usage.lower():
+            recommendations.append("Nên uống thuốc sau khi ăn để đạt hiệu quả tốt nhất và giảm tác dụng phụ.")
+        if 'trước khi ăn' in usage.lower() or 'khi đói' in usage.lower():
+            recommendations.append("Nên uống thuốc trước khi ăn hoặc khi đói để hấp thu tốt hơn.")
+    
+    # Khuyến nghị chung
+    if not recommendations:
+        recommendations.append("Vui lòng đọc kỹ hướng dẫn sử dụng trước khi dùng và tuân thủ liều lượng khuyến nghị.")
+        recommendations.append("Nếu có bất kỳ dấu hiệu bất thường nào, hãy ngừng sử dụng và tham khảo ý kiến bác sĩ.")
+    else:
+        recommendations.append("Nếu có bất kỳ dấu hiệu bất thường nào, hãy ngừng sử dụng và tham khảo ý kiến bác sĩ.")
+    
+    return recommendations
 
 def extract_drug_details_from_pdf(page_number, offset=-1):
     """
@@ -255,6 +429,7 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
             'indications': '',
             'contraindications': '',
             'dosage': '',
+            'usage': '',  # Cách dùng
             'full_text': text[:2000]  # Giới hạn để tránh quá dài
         }
         
@@ -263,7 +438,8 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
             'composition': re.compile(r'(Thành phần|Thành phần chính|Hoạt chất)[:\.]\s*(.+?)(?:\n|$)', re.IGNORECASE),
             'indications': re.compile(r'(Chỉ định|Công dụng|Tác dụng)[:\.]\s*(.+?)(?:\n|Chống chỉ định|Liều dùng|$)', re.IGNORECASE | re.DOTALL),
             'contraindications': re.compile(r'(Chống chỉ định|Không dùng)[:\.]\s*(.+?)(?:\n|Liều dùng|Cách dùng|$)', re.IGNORECASE | re.DOTALL),
-            'dosage': re.compile(r'(Liều dùng|Cách dùng|Liều lượng)[:\.]\s*(.+?)(?:\n|Tác dụng phụ|$)', re.IGNORECASE | re.DOTALL)
+            'dosage': re.compile(r'(Liều dùng|Cách dùng|Liều lượng|Cách sử dụng)[:\.]\s*(.+?)(?:\n|Tác dụng phụ|Lưu ý|Bảo quản|$)', re.IGNORECASE | re.DOTALL),
+            'usage': re.compile(r'(Cách dùng|Hướng dẫn sử dụng|Sử dụng)[:\.]\s*(.+?)(?:\n|Lưu ý|Tác dụng phụ|$)', re.IGNORECASE | re.DOTALL)
         }
         
         # Tìm từng loại thông tin
@@ -271,6 +447,10 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
             match = pattern.search(text)
             if match:
                 details[key] = match.group(2).strip()[:500]  # Giới hạn độ dài
+        
+        # Nếu không tìm thấy "usage", dùng "dosage" làm cách dùng
+        if not details['usage'] and details['dosage']:
+            details['usage'] = details['dosage']
         
         return details
         

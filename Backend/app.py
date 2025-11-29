@@ -10,6 +10,19 @@ import pandas as pd
 import re
 from werkzeug.utils import secure_filename
 from pypdf import PdfReader
+import google.generativeai as genai
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    # Load .env file từ thư mục Backend
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    load_dotenv(env_path)
+    print(f"✅ Đã load .env từ: {env_path}")
+except ImportError:
+    print("⚠️ python-dotenv chưa được cài đặt. Sử dụng environment variables từ hệ thống.")
+except Exception as e:
+    print(f"⚠️ Không thể load .env file: {e}")
 
 # Fix cho Pillow 10.0+ không còn Image.ANTIALIAS
 # EasyOCR và một số thư viện vẫn cần ANTIALIAS
@@ -17,7 +30,14 @@ if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.LANCZOS
 
 app = Flask(__name__)
-CORS(app)  # Cho phép frontend gọi API
+# Cấu hình CORS chi tiết để hỗ trợ port forwarding
+CORS(app, 
+     resources={r"/api/*": {
+         "origins": "*",
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"]
+     }},
+     supports_credentials=True)
 
 # Cấu hình
 UPLOAD_FOLDER = 'uploads'
@@ -71,20 +91,50 @@ def allowed_file(filename):
 def decode_base64_image(base64_string):
     """Decode base64 string thành image"""
     try:
-        # Remove data URL prefix if present
+        if not base64_string:
+            print("❌ Base64 string rỗng")
+            return None
+        
+        # Remove data URL prefix if present (data:image/jpeg;base64,...)
         if ',' in base64_string:
             base64_string = base64_string.split(',')[1]
         
-        image_data = base64.b64decode(base64_string)
-        image = Image.open(io.BytesIO(image_data))
+        # Loại bỏ whitespace
+        base64_string = base64_string.strip()
+        
+        # Decode base64 với validation
+        try:
+            image_data = base64.b64decode(base64_string, validate=True)
+        except Exception as e:
+            print(f"❌ Lỗi decode base64: {e}")
+            return None
+        
+        if len(image_data) == 0:
+            print("❌ Image bytes rỗng sau khi decode")
+            return None
+        
+        # Mở ảnh bằng PIL
+        try:
+            image = Image.open(io.BytesIO(image_data))
+        except Exception as e:
+            print(f"❌ Lỗi mở ảnh từ bytes: {e}")
+            return None
         
         # Convert to RGB if necessary
         if image.mode != 'RGB':
             image = image.convert('RGB')
         
-        return np.array(image)
+        image_array = np.array(image)
+        if image_array.size == 0:
+            print("❌ Image array rỗng")
+            return None
+        
+        print(f"✅ Decode ảnh thành công: {image_array.shape}")
+        return image_array
     except Exception as e:
-        print(f"Error decoding image: {e}")
+        print(f"❌ Error decoding image: {e}")
+        import traceback
+        print(traceback.format_exc())
         return None
 
 def preprocess_image(image_array):
@@ -353,6 +403,177 @@ def search_drug_in_database(drug_name):
     
     return None
 
+def summarize_drug_info_with_gemini(pdf_text, drug_name, drug_info):
+    """
+    Sử dụng Gemini AI để đọc toàn bộ thông tin từ PDF và tổng hợp thành:
+    - Cách dùng (usage): Dễ hiểu, ngắn gọn
+    - Lưu ý (notes): Từ chống chỉ định, tương tác thuốc, tác dụng phụ
+    """
+    if not pdf_text or len(pdf_text.strip()) < 50:
+        return {'usage': '', 'notes': ''}
+    
+    # Lấy API key từ environment variable
+    gemini_api_key = os.getenv('GEMINI_API_KEY')
+    if not gemini_api_key:
+        print("⚠️ GEMINI_API_KEY không được cấu hình, trả về text gốc")
+        return {'usage': '', 'notes': ''}
+    
+    try:
+        # Cấu hình Gemini
+        genai.configure(api_key=gemini_api_key)
+        # Sử dụng Gemini 2.0 Flash (model mới nhất, nhanh và chính xác)
+        try:
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        except Exception as e:
+            print(f"⚠️ Không thể dùng gemini-2.0-flash-exp, thử gemini-2.0-flash: {e}")
+            try:
+                model = genai.GenerativeModel('gemini-2.0-flash')
+            except Exception as e2:
+                print(f"⚠️ Không thể dùng gemini-2.0-flash, thử gemini-1.5-flash: {e2}")
+                model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Lấy thông tin bổ sung từ drug_info
+        category = drug_info.get('Category', '')
+        active_ingredient = drug_info.get('ActiveIngredient', '')
+        
+        # Giới hạn độ dài PDF text để tránh vượt quá token limit
+        pdf_text_limited = pdf_text[:3000] if len(pdf_text) > 3000 else pdf_text
+        
+        # Prompt để tổng hợp thông tin - cải thiện để filter đúng thuốc
+        prompt = f"""Bạn là một dược sĩ chuyên nghiệp. Hãy đọc và tổng hợp thông tin từ Dược thư Quốc gia về thuốc CỤ THỂ sau:
+
+**THUỐC CẦN TÌM:**
+- Tên thuốc: {drug_name}
+- Hoạt chất: {active_ingredient}
+- Phân loại: {category}
+
+**LƯU Ý QUAN TRỌNG:**
+- Trang PDF có thể chứa thông tin của NHIỀU thuốc khác nhau
+- BẠN CHỈ ĐƯỢC tổng hợp thông tin về thuốc "{drug_name}" hoặc "{active_ingredient}"
+- BỎ QUA hoàn toàn thông tin về các thuốc khác (như Polymyxin, Polygelin, hoặc bất kỳ thuốc nào khác)
+- Nếu không tìm thấy thông tin về thuốc này, trả về "Không tìm thấy thông tin" thay vì thông tin của thuốc khác
+
+**Thông tin từ Dược thư (có thể chứa nhiều thuốc):**
+{pdf_text_limited}
+
+**YÊU CẦU:**
+1. Tổng hợp phần "CÁCH DÙNG" (usage) - CHỈ về thuốc "{drug_name}":
+   - Viết bằng ngôn ngữ đơn giản, dễ hiểu
+   - Tập trung vào: liều lượng, thời điểm uống, cách uống, tần suất
+   - Sử dụng câu ngắn gọn, rõ ràng
+   - Loại bỏ thuật ngữ y khoa phức tạp
+   - Nếu không có thông tin, viết: "Thông tin cách dùng không có trong dược thư"
+
+2. Tổng hợp phần "LƯU Ý" (notes) - CHỈ về thuốc "{drug_name}":
+   - Từ chống chỉ định: ai không nên dùng
+   - Tương tác thuốc: không dùng cùng với thuốc gì
+   - Tác dụng phụ: cần chú ý gì
+   - Đối tượng đặc biệt: phụ nữ có thai, trẻ em, người già
+   - Bảo quản: cách bảo quản thuốc
+   - Nếu không có thông tin, viết: "Thông tin lưu ý không có trong dược thư"
+
+**Trả về theo định dạng JSON:**
+{{
+  "usage": "Phần cách dùng đã tổng hợp (CHỈ về {drug_name})",
+  "notes": "Phần lưu ý đã tổng hợp (CHỈ về {drug_name})"
+}}
+
+**QUAN TRỌNG:** Chỉ trả về JSON, không thêm text khác. KHÔNG được trả về thông tin của thuốc khác."""
+        
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
+        
+        # Loại bỏ markdown code blocks nếu có
+        result_text = result_text.replace('```json', '').replace('```', '').strip()
+        
+        # Parse JSON
+        import json
+        try:
+            result = json.loads(result_text)
+            usage = result.get('usage', '').strip()
+            notes = result.get('notes', '').strip()
+            
+            # Kiểm tra xem có phải là thông báo lỗi không
+            if 'không tìm thấy' in usage.lower() or 'không có trong' in usage.lower():
+                usage = "Thông tin cách dùng không có trong dược thư cho thuốc này."
+            if 'không tìm thấy' in notes.lower() or 'không có trong' in notes.lower():
+                notes = "Thông tin lưu ý không có trong dược thư cho thuốc này."
+            
+            # Giới hạn độ dài
+            if len(usage) > 500:
+                usage = usage[:500] + "..."
+            if len(notes) > 600:
+                notes = notes[:600] + "..."
+            
+            print(f"✅ Đã tổng hợp thông tin với Gemini cho {drug_name}")
+            return {
+                'usage': usage,
+                'notes': notes
+            }
+        except json.JSONDecodeError:
+            # Nếu không parse được JSON, thử extract thủ công
+            print("⚠️ Không parse được JSON từ Gemini, thử extract thủ công")
+            # Tìm phần usage và notes trong text
+            usage_start = result_text.find('"usage"') or result_text.find('CÁCH DÙNG')
+            notes_start = result_text.find('"notes"') or result_text.find('LƯU Ý')
+            
+            if usage_start > -1 and notes_start > -1:
+                usage = result_text[usage_start:notes_start].replace('"usage":', '').strip('",')
+                notes = result_text[notes_start:].replace('"notes":', '').strip('",')
+                return {'usage': usage[:500], 'notes': notes[:600]}
+            else:
+                # Fallback: chia text làm 2 phần
+                parts = result_text.split('\n\n')
+                usage = parts[0] if len(parts) > 0 else ''
+                notes = parts[1] if len(parts) > 1 else ''
+                return {'usage': usage[:500], 'notes': notes[:600]}
+        
+    except Exception as e:
+        print(f"⚠️ Lỗi khi gọi Gemini API: {e}")
+        return {'usage': '', 'notes': ''}
+
+def generate_recommendations(drug_info, pdf_details):
+    """
+    Tạo khuyến nghị sử dụng thuốc dựa trên thông tin thuốc
+    """
+    recommendations = []
+    
+    # Khuyến nghị dựa trên phân loại
+    category = drug_info.get('Category', '').lower()
+    if 'kháng sinh' in category:
+        recommendations.append("Kháng sinh cần uống đủ liều và đủ thời gian theo chỉ định của bác sĩ, không tự ý ngừng thuốc.")
+    elif 'giảm đau' in category or 'hạ sốt' in category:
+        recommendations.append("Thuốc giảm đau hạ sốt nên uống sau khi ăn để tránh kích ứng dạ dày.")
+    elif 'chống viêm' in category:
+        recommendations.append("Thuốc chống viêm nên uống sau khi ăn và uống nhiều nước.")
+    elif 'vitamin' in category or 'bổ sung' in category:
+        recommendations.append("Vitamin và chất bổ sung nên uống theo liều lượng khuyến nghị, không lạm dụng.")
+    
+    # Khuyến nghị dựa trên chống chỉ định
+    contraindications = pdf_details.get('contraindications', '').lower()
+    if contraindications:
+        if 'phụ nữ có thai' in contraindications or 'mang thai' in contraindications:
+            recommendations.append("Không sử dụng cho phụ nữ có thai hoặc đang cho con bú nếu không có chỉ định của bác sĩ.")
+        if 'trẻ em' in contraindications or 'trẻ nhỏ' in contraindications:
+            recommendations.append("Cần thận trọng khi sử dụng cho trẻ em, nên tham khảo ý kiến bác sĩ.")
+    
+    # Khuyến nghị dựa trên cách dùng
+    usage = pdf_details.get('usage', '') or pdf_details.get('dosage', '')
+    if usage:
+        if 'sau khi ăn' in usage.lower() or 'sau bữa ăn' in usage.lower():
+            recommendations.append("Nên uống thuốc sau khi ăn để đạt hiệu quả tốt nhất và giảm tác dụng phụ.")
+        if 'trước khi ăn' in usage.lower() or 'khi đói' in usage.lower():
+            recommendations.append("Nên uống thuốc trước khi ăn hoặc khi đói để hấp thu tốt hơn.")
+    
+    # Khuyến nghị chung
+    if not recommendations:
+        recommendations.append("Vui lòng đọc kỹ hướng dẫn sử dụng trước khi dùng và tuân thủ liều lượng khuyến nghị.")
+        recommendations.append("Nếu có bất kỳ dấu hiệu bất thường nào, hãy ngừng sử dụng và tham khảo ý kiến bác sĩ.")
+    else:
+        recommendations.append("Nếu có bất kỳ dấu hiệu bất thường nào, hãy ngừng sử dụng và tham khảo ý kiến bác sĩ.")
+    
+    return recommendations
+
 def extract_drug_details_from_pdf(page_number, offset=-1):
     """
     Trích xuất thông tin chi tiết từ PDF dựa trên số trang
@@ -380,12 +601,17 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
         if not text:
             return {}
         
+        # Tìm phần text liên quan đến thuốc cụ thể (nếu có tên thuốc trong text)
+        # Lấy toàn bộ text nhưng sẽ filter trong prompt của Gemini
+        full_text = text
+        
         details = {
             'composition': '',
             'indications': '',
             'contraindications': '',
             'dosage': '',
-            'full_text': text[:2000]  # Giới hạn để tránh quá dài
+            'usage': '',  # Cách dùng
+            'full_text': full_text  # Giữ toàn bộ text để Gemini có thể filter
         }
         
         # Regex patterns để tìm các thông tin
@@ -393,7 +619,8 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
             'composition': re.compile(r'(Thành phần|Thành phần chính|Hoạt chất)[:\.]\s*(.+?)(?:\n|$)', re.IGNORECASE),
             'indications': re.compile(r'(Chỉ định|Công dụng|Tác dụng)[:\.]\s*(.+?)(?:\n|Chống chỉ định|Liều dùng|$)', re.IGNORECASE | re.DOTALL),
             'contraindications': re.compile(r'(Chống chỉ định|Không dùng)[:\.]\s*(.+?)(?:\n|Liều dùng|Cách dùng|$)', re.IGNORECASE | re.DOTALL),
-            'dosage': re.compile(r'(Liều dùng|Cách dùng|Liều lượng)[:\.]\s*(.+?)(?:\n|Tác dụng phụ|$)', re.IGNORECASE | re.DOTALL)
+            'dosage': re.compile(r'(Liều dùng|Cách dùng|Liều lượng|Cách sử dụng)[:\.]\s*(.+?)(?:\n|Tác dụng phụ|Lưu ý|Bảo quản|$)', re.IGNORECASE | re.DOTALL),
+            'usage': re.compile(r'(Cách dùng|Hướng dẫn sử dụng|Sử dụng)[:\.]\s*(.+?)(?:\n|Lưu ý|Tác dụng phụ|$)', re.IGNORECASE | re.DOTALL)
         }
         
         # Tìm từng loại thông tin
@@ -402,27 +629,56 @@ def extract_drug_details_from_pdf(page_number, offset=-1):
             if match:
                 details[key] = match.group(2).strip()[:500]  # Giới hạn độ dài
         
+        # Nếu không tìm thấy "usage", dùng "dosage" làm cách dùng
+        if not details['usage'] and details['dosage']:
+            details['usage'] = details['dosage']
+        
         return details
         
     except Exception as e:
         print(f"⚠️ Lỗi đọc PDF trang {page_number}: {e}")
         return {}
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health_check():
     """Health check endpoint"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        return response
+    
     return jsonify({
         'status': 'ok',
         'message': 'Backend API is running',
         'drugs_loaded': len(drug_db) if drug_db is not None else 0
     })
 
-@app.route('/api/scan', methods=['POST'])
+@app.route('/api/scan', methods=['POST', 'OPTIONS'])
 def scan_drug():
     """API endpoint để scan thuốc từ ảnh hoặc text"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        return response
+    
     try:
+        # Kiểm tra request có JSON không
+        if not request.is_json:
+            print("❌ Request không phải JSON")
+            return jsonify({
+                'success': False,
+                'error': 'Invalid request format',
+                'message': 'Request phải là JSON format'
+            }), 400
+        
         # Kiểm tra xem có text được gửi trực tiếp không (từ modal xác nhận OCR)
-        if 'text' in request.json:
+        if request.json and 'text' in request.json:
             confirmed_text = request.json['text']
             print(f"📝 Tìm kiếm với text đã xác nhận: {confirmed_text}")
             
@@ -453,6 +709,23 @@ def scan_drug():
                 pdf_details = {}
                 if page_number and pdf_reader:
                     pdf_details = extract_drug_details_from_pdf(page_number)
+                    
+                    # Sử dụng Gemini để tổng hợp thông tin từ PDF
+                    drug_name = drug_info.get('DrugName', '')
+                    pdf_full_text = pdf_details.get('full_text', '')
+                    
+                    if pdf_full_text:
+                        # Tổng hợp với Gemini: cách dùng + lưu ý
+                        gemini_summary = summarize_drug_info_with_gemini(pdf_full_text, drug_name, drug_info)
+                        
+                        # Cập nhật usage và thêm notes
+                        if gemini_summary.get('usage'):
+                            pdf_details['usage'] = gemini_summary['usage']
+                        if gemini_summary.get('notes'):
+                            pdf_details['notes'] = gemini_summary['notes']
+                
+                # Tạo khuyến nghị
+                recommendations = generate_recommendations(drug_info, pdf_details)
                 
                 return jsonify({
                     'success': True,
@@ -465,7 +738,10 @@ def scan_drug():
                     'composition': pdf_details.get('composition', ''),
                     'indications': pdf_details.get('indications', ''),
                     'contraindications': pdf_details.get('contraindications', ''),
-                    'dosage': pdf_details.get('dosage', '')
+                    'dosage': pdf_details.get('dosage', ''),
+                    'usage': pdf_details.get('usage', ''),  # Cách dùng (tổng hợp bởi Gemini)
+                    'notes': pdf_details.get('notes', ''),  # Lưu ý (tổng hợp bởi Gemini)
+                    'recommendations': recommendations  # Khuyến nghị
                 })
             else:
                 return jsonify({
@@ -488,11 +764,26 @@ def scan_drug():
         elif 'image' in request.json:
             # Nhận base64 image
             base64_image = request.json['image']
+            
+            # Loại bỏ data URL prefix nếu có (data:image/jpeg;base64,...)
+            if ',' in base64_image:
+                base64_image = base64_image.split(',')[1]
+            
             image_array = decode_base64_image(base64_image)
             if image_array is None:
-                return jsonify({'error': 'Invalid image data'}), 400
+                print(f"❌ Lỗi decode base64 image. Length: {len(base64_image) if base64_image else 0}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid image data',
+                    'message': 'Không thể đọc ảnh. Vui lòng thử lại với ảnh khác.'
+                }), 400
         else:
-            return jsonify({'error': 'No image provided'}), 400
+            print(f"❌ Không có image trong request. Keys: {list(request.json.keys()) if request.json else 'No JSON'}")
+            return jsonify({
+                'success': False,
+                'error': 'No image provided',
+                'message': 'Vui lòng cung cấp ảnh để quét.'
+            }), 400
         
         # Tiền xử lý ảnh
         processed_image = preprocess_image(image_array)
@@ -500,13 +791,25 @@ def scan_drug():
         # Trích xuất text từ ảnh (OCR) - trả về text đã chọn và tất cả text
         extracted_text, all_ocr_texts = extract_text_from_image(image_array)  # Dùng ảnh gốc
         
-        if not extracted_text:
+        # Kiểm tra kết quả OCR
+        if extracted_text is None:
+            print("❌ OCR trả về None")
             return jsonify({
                 'success': False,
-                'message': 'Không thể nhận diện text từ ảnh. Vui lòng thử lại với ảnh rõ hơn.',
+                'message': 'Lỗi khi xử lý OCR. Vui lòng thử lại.',
                 'extracted_text': '',
-                'all_ocr_texts': all_ocr_texts
-            }), 400
+                'all_ocr_texts': all_ocr_texts or []
+            }), 500
+        
+        if not extracted_text or extracted_text.strip() == '':
+            print(f"⚠️ OCR không tìm thấy text. All texts: {all_ocr_texts}")
+            # Vẫn trả về 200 nhưng với success=False để frontend có thể xử lý
+            return jsonify({
+                'success': False,
+                'message': 'Không thể nhận diện text từ ảnh. Vui lòng thử lại với ảnh rõ hơn hoặc chụp lại.',
+                'extracted_text': '',
+                'all_ocr_texts': all_ocr_texts or []
+            }), 200  # Đổi thành 200 để frontend có thể xử lý
         
         print(f"📝 Text nhận diện được: {extracted_text}")
         print(f"📋 Tất cả text OCR: {all_ocr_texts}")
@@ -542,6 +845,23 @@ def scan_drug():
             
             if page_number and pdf_reader:
                 pdf_details = extract_drug_details_from_pdf(page_number)
+                
+                # Sử dụng Gemini để tổng hợp thông tin từ PDF
+                drug_name = drug_info.get('DrugName', '')
+                pdf_full_text = pdf_details.get('full_text', '')
+                
+                if pdf_full_text:
+                    # Tổng hợp với Gemini: cách dùng + lưu ý
+                    gemini_summary = summarize_drug_info_with_gemini(pdf_full_text, drug_name, drug_info)
+                    
+                    # Cập nhật usage và thêm notes
+                    if gemini_summary.get('usage'):
+                        pdf_details['usage'] = gemini_summary['usage']
+                    if gemini_summary.get('notes'):
+                        pdf_details['notes'] = gemini_summary['notes']
+            
+            # Tạo khuyến nghị
+            recommendations = generate_recommendations(drug_info, pdf_details)
             
             # Trả về thông tin thuốc đầy đủ
             return jsonify({
@@ -556,7 +876,10 @@ def scan_drug():
                 'composition': pdf_details.get('composition', ''),
                 'indications': pdf_details.get('indications', ''),
                 'contraindications': pdf_details.get('contraindications', ''),
-                'dosage': pdf_details.get('dosage', '')
+                'dosage': pdf_details.get('dosage', ''),
+                'usage': pdf_details.get('usage', ''),  # Cách dùng (tổng hợp bởi Gemini)
+                'notes': pdf_details.get('notes', ''),  # Lưu ý (tổng hợp bởi Gemini)
+                'recommendations': recommendations  # Khuyến nghị
             })
         else:
             # Không tìm thấy trong database - trả về để user có thể xác nhận OCR
@@ -569,10 +892,14 @@ def scan_drug():
             }), 404
             
     except Exception as e:
-        print(f"Error processing scan: {e}")
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Error processing scan: {e}")
+        print(f"📋 Traceback:\n{error_trace}")
         return jsonify({
+            'success': False,
             'error': 'Internal server error',
-            'message': str(e)
+            'message': f'Lỗi khi xử lý: {str(e)}'
         }), 500
 
 @app.route('/api/drugs/search', methods=['GET'])
@@ -601,5 +928,18 @@ if __name__ == '__main__':
     load_pdf()
     print("🚀 Starting MediScan AI Backend Server...")
     print("📡 API available at http://localhost:5000")
+    
+    # Hiển thị IP local để kết nối từ mobile
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        print(f"📱 Mobile access: http://{local_ip}:5000")
+        print(f"   (Đảm bảo mobile và máy tính cùng WiFi)")
+    except:
+        pass
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
 

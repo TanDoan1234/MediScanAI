@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap, ScanLine, Camera, Loader2, Check, Edit2 } from 'lucide-react';
+import { X, Zap, ScanLine, Camera, Loader2, Check, Edit2, Upload } from 'lucide-react';
 import { API_URL } from '../utils/api';
 import OCRTextEditor from './OCRTextEditor';
 
@@ -12,6 +12,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
   const [showOCRText, setShowOCRText] = useState(false); // Hiển thị text OCR
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Khởi tạo camera
   useEffect(() => {
@@ -93,8 +94,14 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       });
 
       clearInterval(progressInterval);
-      setProgress(100);
+      
+      // Kiểm tra response status
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
+      setProgress(100);
       const result = await response.json();
 
       // Luôn truyền kết quả lên component cha (bao gồm OCR data)
@@ -124,7 +131,22 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       }
     } catch (err) {
       console.error('Error scanning:', err);
-      setError('Lỗi khi quét. Vui lòng thử lại.');
+      // Hiển thị lỗi chi tiết hơn
+      let errorMessage = 'Lỗi khi quét. Vui lòng thử lại.';
+      
+      if (err.message) {
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          errorMessage = 'Không thể kết nối đến server. Kiểm tra backend đã chạy chưa?';
+        } else if (err.message.includes('HTTP 404')) {
+          errorMessage = 'API không tìm thấy. Kiểm tra URL backend.';
+        } else if (err.message.includes('HTTP 500')) {
+          errorMessage = 'Lỗi server. Kiểm tra log backend.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
       setIsScanning(false);
       setProgress(0);
     }
@@ -133,6 +155,125 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
   const handleClose = () => {
     stopCamera();
     onClose();
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || isScanning) return;
+
+    // Kiểm tra loại file
+    if (!file.type.startsWith('image/')) {
+      setError('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    setIsScanning(true);
+    setProgress(0);
+    setError(null);
+
+    try {
+      // Đọc file và convert sang base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageData = e.target.result; // base64 string
+
+        // Simulate progress
+        const progressInterval = setInterval(() => {
+          setProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 100);
+
+        try {
+          // Gửi ảnh đến backend
+          const response = await fetch(`${API_URL}/scan`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              image: imageData
+            })
+          });
+
+          clearInterval(progressInterval);
+          
+          // Kiểm tra response status
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+            throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          setProgress(100);
+          const result = await response.json();
+
+          // Luôn truyền kết quả lên component cha (bao gồm OCR data)
+          if (onScanResult) {
+            onScanResult(result);
+          }
+
+          // Hiển thị text OCR ngay trên camera
+          if (result.extracted_text || result.all_ocr_texts) {
+            setOcrResult({
+              extracted_text: result.extracted_text || '',
+              all_ocr_texts: result.all_ocr_texts || []
+            });
+            setShowOCRText(true);
+            setIsScanning(false);
+            setProgress(0);
+          } else if (result.error === 'PRESCRIPTION_REQUIRED') {
+            // Thuốc kê đơn - hiển thị kết quả ngay
+            setTimeout(() => {
+              onComplete();
+            }, 500);
+          } else {
+            // Lỗi không có OCR
+            setError(result.message || 'Không thể nhận diện text từ ảnh');
+            setIsScanning(false);
+            setProgress(0);
+          }
+        } catch (err) {
+          clearInterval(progressInterval);
+          throw err;
+        }
+      };
+
+      reader.onerror = () => {
+        setError('Lỗi khi đọc file ảnh');
+        setIsScanning(false);
+        setProgress(0);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      let errorMessage = 'Lỗi khi upload ảnh. Vui lòng thử lại.';
+      
+      if (err.message) {
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          errorMessage = 'Không thể kết nối đến server. Kiểm tra backend đã chạy chưa?';
+        } else if (err.message.includes('HTTP 404')) {
+          errorMessage = 'API không tìm thấy. Kiểm tra URL backend.';
+        } else if (err.message.includes('HTTP 500')) {
+          errorMessage = 'Lỗi server. Kiểm tra log backend.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
+      setIsScanning(false);
+      setProgress(0);
+    }
+
+    // Reset input để có thể chọn lại file cùng tên
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -153,14 +294,18 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       </div>
 
       {/* Camera View */}
-      <div className="relative w-full flex-1 flex items-center justify-center">
+      <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover"
-          style={{ display: cameraReady ? 'block' : 'none' }}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ 
+            display: cameraReady ? 'block' : 'none',
+            objectPosition: 'center',
+            transform: 'scaleX(1)'
+          }}
         />
         
         {/* Scan Frame Overlay */}
@@ -299,7 +444,27 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
               : 'Đặt thuốc trong khung và chụp'}
         </span>
         {!showOCRText && (
-          <div className="flex justify-center w-full items-center">
+          <div className="flex justify-center w-full items-center relative">
+            {/* Upload button - góc dưới trái */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isScanning}
+              className="absolute left-0 p-3 rounded-full bg-white/20 text-white hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+              title="Upload ảnh từ thư viện"
+            >
+              <Upload className="w-6 h-6" />
+            </button>
+            
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            {/* Capture button - giữa */}
             <button
               onClick={captureAndScan}
               disabled={!cameraReady || isScanning}
