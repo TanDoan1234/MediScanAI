@@ -6,7 +6,9 @@ from api.utils import (
     preprocess_image,
     extract_text_from_image,
     search_drug_in_database,
-    extract_drug_details_from_pdf
+    extract_drug_details_from_pdf,
+    generate_recommendations,
+    summarize_drug_info_with_gemini
 )
 import pandas as pd
 
@@ -48,13 +50,14 @@ class handler(BaseHTTPRequestHandler):
             processed_image = preprocess_image(image_array)
             
             # Trích xuất text từ ảnh (OCR) - dùng ảnh gốc
-            extracted_text = extract_text_from_image(image_array)
+            extracted_text, all_ocr_texts = extract_text_from_image(image_array)
             
             if not extracted_text:
                 response = {
                     'success': False,
                     'message': 'Không thể nhận diện text từ ảnh. Vui lòng thử lại với ảnh rõ hơn.',
-                    'extracted_text': ''
+                    'extracted_text': '',
+                    'all_ocr_texts': all_ocr_texts or []
                 }
                 status_code = 400
             else:
@@ -91,6 +94,23 @@ class handler(BaseHTTPRequestHandler):
                     
                     if page_number:
                         pdf_details = extract_drug_details_from_pdf(page_number)
+                        
+                        # Sử dụng Gemini để tổng hợp thông tin từ PDF
+                        drug_name = drug_info.get('DrugName', '')
+                        pdf_full_text = pdf_details.get('full_text', '')
+                        
+                        if pdf_full_text:
+                            # Tổng hợp với Gemini: cách dùng + lưu ý
+                            gemini_summary = summarize_drug_info_with_gemini(pdf_full_text, drug_name, drug_info)
+                            
+                            # Cập nhật usage và thêm notes
+                            if gemini_summary.get('usage'):
+                                pdf_details['usage'] = gemini_summary['usage']
+                            if gemini_summary.get('notes'):
+                                pdf_details['notes'] = gemini_summary['notes']
+                    
+                    # Tạo khuyến nghị
+                    recommendations = generate_recommendations(drug_info, pdf_details)
                     
                     response = {
                         'success': True,
@@ -99,11 +119,14 @@ class handler(BaseHTTPRequestHandler):
                         'page_number': str(page_number),
                         'category': drug_info.get('Category', ''),
                         'extracted_text': extracted_text,
+                        'all_ocr_texts': all_ocr_texts or [],  # Trả về tất cả text OCR
                         'rx_status': 'OTC',
                         'composition': pdf_details.get('composition', ''),
                         'indications': pdf_details.get('indications', ''),
                         'contraindications': pdf_details.get('contraindications', ''),
-                        'dosage': pdf_details.get('dosage', '')
+                        'dosage': pdf_details.get('dosage', ''),
+                        'usage': pdf_details.get('usage', ''),  # Cách dùng
+                        'recommendations': recommendations  # Khuyến nghị
                     }
                     status_code = 200
                 else:
@@ -111,7 +134,8 @@ class handler(BaseHTTPRequestHandler):
                     response = {
                         'success': False,
                         'message': 'Không tìm thấy thông tin thuốc trong database',
-                        'extracted_text': extracted_text
+                        'extracted_text': extracted_text,
+                        'all_ocr_texts': all_ocr_texts or []
                     }
                     status_code = 404
             
