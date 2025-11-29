@@ -1,5 +1,5 @@
 import React from 'react';
-import { categories } from '../data/categories';
+import { categories } from '../data/categories.jsx';
 
 export default function CategoryGrid() {
   return (

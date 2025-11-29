@@ -4,7 +4,7 @@ import {
   User, 
   EyeOff, 
   BrainCircuit, 
-  MessageSquareWarning, 
+  MessageSquare, 
   Stethoscope 
 } from 'lucide-react';
 
@@ -48,7 +48,7 @@ export const banners = [
       {[
         { icon: <EyeOff className="w-4 h-4" />, text: "Không thấy" },
         { icon: <BrainCircuit className="w-4 h-4" />, text: "Không hiểu" },
-        { icon: <MessageSquareWarning className="w-4 h-4" />, text: "Quên lời dặn" }
+        { icon: <MessageSquare className="w-4 h-4" />, text: "Quên lời dặn" }
       ].map((item, idx) => (
         <div key={idx} className="bg-white/10 rounded-lg p-1.5 flex flex-col items-center justify-center backdrop-blur-sm border border-white/5">
           {item.icon}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { banners } from '../data/banners';
+import { banners } from '../data/banners.jsx';
 
 export default function BannerSlider({ currentBanner }) {
   return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { healthInfos } from '../data/healthInfos';
+import { healthInfos } from '../data/healthInfos.jsx';
 
 export default function HealthInfoCards() {
   return (

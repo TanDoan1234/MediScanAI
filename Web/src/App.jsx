@@ -16,7 +16,7 @@ import SearchTab from './components/tabs/SearchTab';
 import FavoritesTab from './components/tabs/FavoritesTab';
 import ProfileTab from './components/tabs/ProfileTab';
 import { useBannerAutoScroll } from './hooks/useBannerAutoScroll';
-import { banners } from './data/banners';
+import { banners } from './data/banners.jsx';
 import './styles/animations.css';
 
 export default function MediScanApp() {

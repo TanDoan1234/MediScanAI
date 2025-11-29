@@ -23,7 +23,7 @@ export { default as ScanResultModal } from './components/modals/ScanResultModal'
 export { useBannerAutoScroll } from './hooks/useBannerAutoScroll';
 
 // Data
-export { banners } from './data/banners';
-export { categories } from './data/categories';
-export { healthInfos } from './data/healthInfos';
+export { banners } from './data/banners.jsx';
+export { categories } from './data/categories.jsx';
+export { healthInfos } from './data/healthInfos.jsx';
 
