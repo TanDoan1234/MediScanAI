@@ -184,6 +184,7 @@ def extract_text_from_image(image_array):
     try:
         reader = get_ocr_reader()
         if reader is None:
+            print("❌ OCR reader is None")
             return None, []
         
         # EasyOCR cần ảnh ở dạng numpy array (BGR hoặc RGB)
@@ -195,11 +196,15 @@ def extract_text_from_image(image_array):
         # Chuyển từ RGB sang BGR (OpenCV format)
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
         height, width = image_bgr.shape[:2]
+        print(f"📐 Ảnh kích thước: {width}x{height}")
         
         # OCR với EasyOCR
+        print("🔍 Đang chạy OCR...")
         results = reader.readtext(image_bgr)
+        print(f"📊 OCR tìm thấy {len(results) if results else 0} text regions")
         
         if not results:
+            print("⚠️ OCR không tìm thấy text nào trong ảnh")
             return None, []
         
         # Danh sách từ thông thường cần loại bỏ (không phải tên thuốc)
@@ -275,6 +280,7 @@ def extract_text_from_image(image_array):
                         })
         
         if not all_texts:
+            print("⚠️ Không có text nào sau khi filter (confidence > 0.3)")
             return None, []
         
         # Sắp xếp candidate theo điểm số
@@ -347,7 +353,9 @@ def extract_text_from_image(image_array):
         return selected_text, all_texts_list
         
     except Exception as e:
-        print(f"⚠️ Lỗi OCR: {e}")
+        import traceback
+        print(f"❌ Lỗi OCR: {e}")
+        print(f"📋 Traceback:\n{traceback.format_exc()}")
         return None, []
 
 def search_drug_in_database(drug_name):
