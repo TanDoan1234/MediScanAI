@@ -7,7 +7,7 @@ export default function CategoryGrid({ onCategoryClick }) {
       <div className="flex justify-between items-end mb-4 px-1">
         <h3 className="text-base font-bold text-gray-800">Danh mục thuốc</h3>
       </div>
-      <div className="grid grid-cols-4 sm:grid-cols-4 gap-y-4 sm:gap-y-6 gap-x-2 sm:gap-x-3">
+      <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-y-4 sm:gap-y-6 lg:gap-y-8 gap-x-2 sm:gap-x-3 lg:gap-x-4">
         {categories.map((cat) => (
           <button
             key={cat.id}

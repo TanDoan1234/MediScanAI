@@ -98,34 +98,50 @@ export default function MediScanApp() {
   };
 
   return (
-    <div className="h-screen bg-gray-100 flex justify-center items-center pt-2 sm:pt-4 pb-2 sm:pb-4 font-sans select-none overflow-hidden">
-      <div className="w-full max-w-md h-full bg-white shadow-2xl rounded-[24px] sm:rounded-[32px] overflow-hidden relative flex flex-col border border-gray-200">
-        {/* SIDEBAR */}
+    <div className="h-screen bg-gray-100 flex justify-center items-center pt-2 sm:pt-4 lg:pt-0 pb-2 sm:pb-4 lg:pb-0 font-sans select-none overflow-hidden">
+      <div className="w-full max-w-md lg:max-w-full lg:w-full h-full lg:h-screen bg-white lg:shadow-none rounded-[24px] sm:rounded-[32px] lg:rounded-none overflow-hidden relative flex flex-col lg:flex-row border border-gray-200 lg:border-0">
+        {/* SIDEBAR - Mobile: Overlay, Desktop: Always visible */}
+        <div className="hidden lg:flex lg:w-64 xl:w-72 bg-gray-50 border-r border-gray-200 flex-shrink-0">
+          <Sidebar
+            isOpen={true}
+            onClose={() => {}}
+            onCategoryClick={handleCategoryClick}
+            onTabClick={setCurrentTab}
+            currentTab={currentTab}
+            isDesktop={true}
+          />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
         <Sidebar
           isOpen={showSidebar}
           onClose={() => setShowSidebar(false)}
           onCategoryClick={handleCategoryClick}
           onTabClick={setCurrentTab}
           currentTab={currentTab}
+          isDesktop={false}
         />
 
         {/* CATEGORY DETAIL PAGE */}
         {selectedCategory ? (
-          <CategoryDetailPage
-            category={selectedCategory}
-            onBack={handleBackFromCategory}
-          />
+          <div className="flex-1 flex flex-col min-w-0">
+            <CategoryDetailPage
+              category={selectedCategory}
+              onBack={handleBackFromCategory}
+            />
+          </div>
         ) : (
-          <>
+          <div className="flex-1 flex flex-col min-w-0">
             {/* HEADER */}
             <Header
               showNotifications={showNotifications}
               setShowNotifications={setShowNotifications}
               onMenuClick={() => setShowSidebar(true)}
+              onScanClick={handleScanClick}
             />
 
             {/* MAIN CONTENT AREA (Scrollable) */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 pb-20 scrollbar-hide bg-gray-50/50 min-h-0">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 lg:px-8 xl:px-10 pb-20 lg:pb-6 scrollbar-hide bg-gray-50/50 min-h-0">
               {currentTab === "home" && (
                 <HomeTab
                   currentBanner={currentBanner}
@@ -136,11 +152,11 @@ export default function MediScanApp() {
               {currentTab === "heart" && <FavoritesTab />}
               {currentTab === "user" && <ProfileTab />}
             </div>
-          </>
+          </div>
         )}
 
-        {/* BOTTOM NAVIGATION BAR */}
-        <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 flex justify-between items-end h-[70px] sm:h-[80px] rounded-t-[24px] sm:rounded-t-[32px] z-30 safe-area-inset-bottom flex-shrink-0">
+        {/* BOTTOM NAVIGATION BAR - Hidden on desktop, shown on mobile */}
+        <div className="lg:hidden absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 flex justify-between items-end h-[70px] sm:h-[80px] rounded-t-[24px] sm:rounded-t-[32px] z-30 safe-area-inset-bottom flex-shrink-0">
           <NavItem
             icon={<Home className="w-6 h-6" />}
             label="Trang chủ"

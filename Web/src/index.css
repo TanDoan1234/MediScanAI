@@ -18,6 +18,17 @@ body {
   overflow: hidden;
 }
 
+/* Desktop full screen layout */
+@media (min-width: 1024px) {
+  #root {
+    overflow: visible;
+  }
+  
+  body {
+    overflow: hidden;
+  }
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;

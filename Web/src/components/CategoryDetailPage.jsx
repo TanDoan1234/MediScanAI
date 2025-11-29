@@ -56,24 +56,24 @@ export default function CategoryDetailPage({ category, onBack }) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden min-w-0">
       {/* Header */}
-      <div className="bg-white shadow-sm flex-shrink-0 z-10">
-        <div className="flex items-center gap-4 px-4 py-3">
+      <div className="bg-white shadow-sm flex-shrink-0 z-10 border-b border-gray-100">
+        <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 py-3 lg:py-4">
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-gray-100 transition"
+            className="p-2 rounded-full hover:bg-gray-100 transition flex-shrink-0"
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-gray-800">{category.name}</h1>
-            <p className="text-xs text-gray-500">{filteredDrugs.length} thuốc</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg lg:text-xl font-bold text-gray-800 truncate">{category.name}</h1>
+            <p className="text-xs lg:text-sm text-gray-500">{filteredDrugs.length} thuốc</p>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div className="px-4 pb-3">
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pb-3 lg:pb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -81,14 +81,14 @@ export default function CategoryDetailPage({ category, onBack }) {
               placeholder="Tìm kiếm thuốc..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl border-0 focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+              className="w-full pl-10 pr-4 py-2.5 lg:py-3 bg-gray-100 rounded-xl border-0 focus:ring-2 focus:ring-teal-500 focus:bg-white transition text-sm lg:text-base"
             />
           </div>
         </div>
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4 lg:py-6 scrollbar-hide min-h-0">
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
@@ -105,32 +105,36 @@ export default function CategoryDetailPage({ category, onBack }) {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredDrugs.map((drug, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition cursor-pointer border border-gray-100"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-800 mb-1">{drug.DrugName || 'N/A'}</h3>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {drug.ActiveIngredient || 'Chưa có thông tin'}
-                    </p>
-                    {drug.Category && (
-                      <span className="inline-block px-2 py-1 bg-teal-50 text-teal-600 text-xs font-medium rounded-lg">
-                        {drug.Category}
-                      </span>
-                    )}
+          <div className="space-y-3 lg:space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
+              {filteredDrugs.map((drug, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-xl p-4 lg:p-5 shadow-sm hover:shadow-md transition cursor-pointer border border-gray-100"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-800 mb-1 lg:mb-2 text-sm lg:text-base truncate">{drug.DrugName || 'N/A'}</h3>
+                      <p className="text-sm lg:text-base text-gray-600 mb-2 lg:mb-3 line-clamp-2">
+                        {drug.ActiveIngredient || 'Chưa có thông tin'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {drug.Category && (
+                          <span className="inline-block px-2 py-1 bg-teal-50 text-teal-600 text-xs lg:text-sm font-medium rounded-lg">
+                            {drug.Category}
+                          </span>
+                        )}
+                        {drug.Is_Prescription && (
+                          <span className="inline-block px-2 py-1 bg-red-50 text-red-600 text-xs lg:text-sm font-bold rounded-lg">
+                            Kê đơn
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  {drug.Is_Prescription && (
-                    <span className="ml-2 px-2 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-lg">
-                      Kê đơn
-                    </span>
-                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -1,23 +1,35 @@
 import React from 'react';
-import { Menu, Bell, Clock, ShieldCheck } from 'lucide-react';
+import { Menu, Bell, Clock, ShieldCheck, ScanLine } from 'lucide-react';
 
-export default function Header({ showNotifications, setShowNotifications, onMenuClick }) {
+export default function Header({ showNotifications, setShowNotifications, onMenuClick, onScanClick }) {
   const toggleNotifications = () => setShowNotifications(!showNotifications);
 
   return (
-    <div className="flex justify-between items-center px-4 sm:px-6 pt-6 sm:pt-8 pb-3 bg-white z-20 flex-shrink-0">
+    <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 sm:pt-8 lg:pt-6 pb-3 bg-white z-20 flex-shrink-0 border-b border-gray-100 lg:border-0">
       <button 
         onClick={onMenuClick}
-        className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition active:scale-95"
+        className="lg:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-full transition active:scale-95"
         aria-label="Menu"
       >
         <Menu className="w-6 h-6" />
       </button>
+      <div className="hidden lg:block"></div>
       <div className="flex flex-col items-center">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Tổng quan</span>
         <h1 className="text-lg font-extrabold text-teal-700 tracking-tight">MediScan AI</h1>
       </div>
-      <div className="relative">
+      <div className="flex items-center gap-3">
+        {/* SCAN BUTTON - Desktop only */}
+        {onScanClick && (
+          <button
+            onClick={onScanClick}
+            className="hidden lg:flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-teal-400 to-cyan-500 text-white rounded-full shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 font-semibold text-sm"
+          >
+            <ScanLine className="w-5 h-5" />
+            <span>Quét thuốc</span>
+          </button>
+        )}
+        <div className="relative">
         <button 
           onClick={toggleNotifications}
           className={`p-2 rounded-full transition ${showNotifications ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
@@ -57,6 +69,7 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
