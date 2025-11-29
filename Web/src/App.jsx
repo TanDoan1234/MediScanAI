@@ -22,6 +22,7 @@ import './styles/animations.css';
 export default function MediScanApp() {
   const [isScanning, setIsScanning] = useState(false);
   const [showScanResult, setShowScanResult] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
   const [currentTab, setCurrentTab] = useState('home');
   const [showNotifications, setShowNotifications] = useState(false);
   const [currentBanner] = useBannerAutoScroll(banners.length, 5000);
@@ -31,6 +32,9 @@ export default function MediScanApp() {
   const handleScanComplete = () => {
     setIsScanning(false);
     setShowScanResult(true);
+  };
+  const handleScanResult = (result) => {
+    setScanResult(result);
   };
 
   return (
@@ -97,11 +101,18 @@ export default function MediScanApp() {
           <ScanOverlay 
             onClose={() => setIsScanning(false)}
             onComplete={handleScanComplete}
+            onScanResult={handleScanResult}
           />
         )}
         
         {showScanResult && (
-          <ScanResultModal onClose={() => setShowScanResult(false)} />
+          <ScanResultModal 
+            onClose={() => {
+              setShowScanResult(false);
+              setScanResult(null);
+            }}
+            result={scanResult}
+          />
         )}
       </div>
     </div>

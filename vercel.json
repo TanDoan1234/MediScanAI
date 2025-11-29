@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "buildCommand": "cd Web && npm install && npm run build",
+  "outputDirectory": "Web/dist",
+  "installCommand": "cd Web && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

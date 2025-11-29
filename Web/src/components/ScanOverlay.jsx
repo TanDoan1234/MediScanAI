@@ -1,53 +1,246 @@
-import React, { useState, useEffect } from 'react';
-import { X, Zap, ScanLine } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Zap, ScanLine, Camera, Loader2 } from 'lucide-react';
+import { API_URL } from '../utils/api';
 
-export default function ScanOverlay({ onClose, onComplete }) {
+export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
   const [progress, setProgress] = useState(0);
+  const [isScanning, setIsScanning] = useState(false);
+  const [error, setError] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
+  // Khởi tạo camera
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            onComplete();
-          }, 300);
-          return 100;
-        }
-        return prev + 4; 
-      });
-    }, 80);
+    startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
-    return () => clearInterval(interval);
-  }, [onComplete]);
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // Camera sau (mobile)
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setCameraReady(true);
+      }
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setError('Không thể truy cập camera. Vui lòng cấp quyền truy cập.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const captureAndScan = async () => {
+    if (!videoRef.current || isScanning) return;
+
+    setIsScanning(true);
+    setProgress(0);
+    setError(null);
+
+    try {
+      // Chụp ảnh từ video
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0);
+      
+      // Convert sang base64
+      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 100);
+
+      // Gửi ảnh đến backend
+      const response = await fetch(`${API_URL}/scan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imageData
+        })
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Truyền kết quả lên component cha
+        if (onScanResult) {
+          onScanResult(result);
+        }
+        setTimeout(() => {
+          onComplete();
+        }, 500);
+      } else {
+        setError(result.message || 'Không tìm thấy thông tin thuốc');
+        setIsScanning(false);
+        setProgress(0);
+      }
+    } catch (err) {
+      console.error('Error scanning:', err);
+      setError('Lỗi khi quét. Vui lòng thử lại.');
+      setIsScanning(false);
+      setProgress(0);
+    }
+  };
+
+  const handleClose = () => {
+    stopCamera();
+    onClose();
+  };
 
   return (
     <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-between py-6 animate-in fade-in duration-200">
-      <div className="flex justify-between w-full px-6 pt-4">
-        <button onClick={onClose} className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition">
+      <div className="flex justify-between w-full px-6 pt-4 z-10">
+        <button 
+          onClick={handleClose} 
+          className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition"
+        >
           <X className="w-6 h-6" />
         </button>
-        <button className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition">
+        <button 
+          onClick={() => startCamera()} 
+          className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition"
+        >
           <Zap className="w-6 h-6 fill-current" />
         </button>
       </div>
-      <div className="relative w-72 h-72 rounded-full overflow-hidden border-4 border-teal-500/30 flex items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-teal-900/50"></div>
-        <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-          <circle className="text-teal-500/20 stroke-current" strokeWidth="4" fill="none" cx="50" cy="50" r="48" />
-          <circle className="text-teal-400 transition-[stroke-dashoffset] duration-100 ease-linear stroke-current" strokeWidth="4" strokeLinecap="round" fill="none" cx="50" cy="50" r="48" strokeDasharray="301.59" strokeDashoffset={301.59 - (progress / 100) * 301.59} />
-        </svg>
-        <div className="absolute w-full h-1 bg-teal-400/80 shadow-[0_0_10px_rgba(45,212,191,0.8)] animate-[scan-line_1.5s_ease-in-out_infinite]"></div>
-        <div className="z-10 flex flex-col items-center justify-center">
-          <ScanLine className="w-16 h-16 text-teal-300 animate-pulse mb-2" />
-          <span className="text-teal-100 text-lg font-medium">{progress}%</span>
+
+      {/* Camera View */}
+      <div className="relative w-full flex-1 flex items-center justify-center">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ display: cameraReady ? 'block' : 'none' }}
+        />
+        
+        {/* Scan Frame Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-72 h-72">
+            {/* Frame border */}
+            <div className="absolute inset-0 border-4 border-teal-500/50 rounded-2xl"></div>
+            
+            {/* Corner indicators */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-teal-400 rounded-tl-2xl"></div>
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-teal-400 rounded-tr-2xl"></div>
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-teal-400 rounded-bl-2xl"></div>
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-teal-400 rounded-br-2xl"></div>
+
+            {/* Progress indicator */}
+            {isScanning && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative">
+                  <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
+                    <circle 
+                      className="text-teal-500/20 stroke-current" 
+                      strokeWidth="4" 
+                      fill="none" 
+                      cx="50" 
+                      cy="50" 
+                      r="48" 
+                    />
+                    <circle 
+                      className="text-teal-400 transition-[stroke-dashoffset] duration-100 ease-linear stroke-current" 
+                      strokeWidth="4" 
+                      strokeLinecap="round" 
+                      fill="none" 
+                      cx="50" 
+                      cy="50" 
+                      r="48" 
+                      strokeDasharray="301.59" 
+                      strokeDashoffset={301.59 - (progress / 100) * 301.59} 
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {isScanning ? (
+                      <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+                    ) : (
+                      <ScanLine className="w-8 h-8 text-teal-300" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scanning line animation */}
+            {!isScanning && (
+              <div className="absolute w-full h-1 bg-teal-400/80 shadow-[0_0_10px_rgba(45,212,191,0.8)] animate-[scan-line_1.5s_ease-in-out_infinite]"></div>
+            )}
+          </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="absolute bottom-20 left-0 right-0 px-6">
+            <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm text-center">
+              {error}
+            </div>
+          </div>
+        )}
+
+        {/* Loading camera message */}
+        {!cameraReady && !error && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-white text-center">
+              <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
+              <p className="text-lg">Đang khởi động camera...</p>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="flex flex-col items-center w-full px-6 pb-6">
-        <span className="text-white text-base font-medium mb-8 animate-pulse">Đang quét AI...</span>
+
+      {/* Bottom controls */}
+      <div className="flex flex-col items-center w-full px-6 pb-6 z-10">
+        <span className="text-white text-base font-medium mb-4">
+          {isScanning ? `Đang quét AI... ${progress}%` : 'Đặt thuốc trong khung và chụp'}
+        </span>
         <div className="flex justify-center w-full items-center">
-          <button className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition">
-            <div className="w-14 h-14 bg-white rounded-full"></div>
+          <button
+            onClick={captureAndScan}
+            disabled={!cameraReady || isScanning}
+            className="w-18 h-18 p-1 bg-transparent rounded-full border-4 border-white flex items-center justify-center shadow-lg transform active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
+              {isScanning ? (
+                <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
+              ) : (
+                <Camera className="w-6 h-6 text-teal-500" />
+              )}
+            </div>
           </button>
         </div>
       </div>

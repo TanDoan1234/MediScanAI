@@ -60,7 +60,7 @@ export const banners = [
   </div>,
 
   // Banner 3: AI Doctor
-  <div key="banner3" className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-3xl p-5 text-white shadow-md relative overflow-hidden h-full flex items-center justify-between select-none">
+  <div key="banner3" className="bg-gradient-to-br from-teal-500 to-cyan-600 rounded-3xl p-5 text-white shadow-md relative overflow-hidden h-full flex items-center justify-between select-none">
     <div className="z-10 w-2/3">
       <div className="flex items-center gap-2 mb-2">
         <div className="p-1 bg-white/20 rounded-md">
@@ -71,12 +71,12 @@ export const banners = [
       <h2 className="text-lg font-bold leading-tight mb-2">
         Bác sĩ gia đình<br/>trực tuyến 24/7
       </h2>
-      <button className="text-[10px] bg-white text-blue-600 px-3 py-1.5 rounded-full font-bold shadow-sm hover:bg-blue-50 transition">
+      <button className="text-[10px] bg-white text-teal-600 px-3 py-1.5 rounded-full font-bold shadow-sm hover:bg-teal-50 transition">
         Chat ngay
       </button>
     </div>
     <div className="w-1/3 flex justify-center relative">
-      <div className="absolute inset-0 bg-blue-400 blur-2xl opacity-40 rounded-full"></div>
+      <div className="absolute inset-0 bg-teal-400 blur-2xl opacity-40 rounded-full"></div>
       <Stethoscope className="w-20 h-20 text-white/20 -rotate-12 transform translate-x-4" />
     </div>
   </div>
