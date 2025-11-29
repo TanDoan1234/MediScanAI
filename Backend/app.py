@@ -428,7 +428,7 @@ def get_drug_details(drug_name):
 if __name__ == '__main__':
     initialize_services()
     print("🚀 Starting MediScan AI Backend Server...")
-    print("📡 API available at http://localhost:5000")
+    print("📡 API available at http://localhost:5001")
     print("🎯 Endpoints:")
     print("   - GET  /api/health")
     print("   - POST /api/scan (basic)")
@@ -437,6 +437,6 @@ if __name__ == '__main__':
     print("   - GET  /api/drug/<drug_name>")
     print("   - GET  /static/audio/<filename>")
     
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
 
