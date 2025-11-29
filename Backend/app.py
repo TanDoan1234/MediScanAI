@@ -222,7 +222,8 @@ def extract_text_from_image(image_array):
         candidate_texts = []
         
         for (bbox, text, confidence) in results:
-            if confidence > 0.3:  # Chỉ lấy text có độ tin cậy > 30%
+            print(f"  📝 Text: '{text}' - Confidence: {confidence:.2f}")
+            if confidence > 0.2:  # Giảm ngưỡng xuống 20% để bắt được nhiều text hơn
                 # Làm sạch text: loại bỏ ký tự đặc biệt ở đầu/cuối
                 text_cleaned = text.strip()
                 # Loại bỏ các ký tự đặc biệt thường gặp trong OCR
