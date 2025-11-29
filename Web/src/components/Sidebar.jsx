@@ -1,8 +1,12 @@
 import React from 'react';
 import { X, Pill, Tablets, Activity, Leaf, Droplet, Stethoscope, Wind, Home, Search, Heart, User } from 'lucide-react';
 import { categories } from '../data/categories.jsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../locales/translations';
 
 export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, currentTab, isDesktop = false }) {
+  const { language } = useLanguage();
+  
   // Desktop: always visible, Mobile: overlay
   if (isDesktop) {
     return (
@@ -11,13 +15,13 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
           {/* Header */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">MediScan AI</h2>
-            <p className="text-sm text-gray-500">Quản lý thuốc thông minh</p>
+            <p className="text-sm text-gray-500">{getTranslation('smartMedicineManagement', language)}</p>
           </div>
 
           {/* Navigation Tabs */}
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-              Điều hướng
+              {getTranslation('navigation', language)}
             </h3>
             <div className="space-y-1">
               <button
@@ -29,7 +33,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Home className="w-5 h-5" />
-                <span className="font-medium">Trang chủ</span>
+                <span className="font-medium">{getTranslation('home', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('search'); onClose(); }}
@@ -40,7 +44,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Search className="w-5 h-5" />
-                <span className="font-medium">Tìm kiếm</span>
+                <span className="font-medium">{getTranslation('search', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('heart'); onClose(); }}
@@ -51,7 +55,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Heart className="w-5 h-5" />
-                <span className="font-medium">Yêu thích</span>
+                <span className="font-medium">{getTranslation('favorites', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('user'); onClose(); }}
@@ -62,7 +66,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <User className="w-5 h-5" />
-                <span className="font-medium">Tài khoản</span>
+                <span className="font-medium">{getTranslation('account', language)}</span>
               </button>
             </div>
           </div>
@@ -70,7 +74,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
           {/* Categories */}
           <div>
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-              Danh mục thuốc
+              {getTranslation('drugCategories', language)}
             </h3>
             <div className="space-y-1">
               {categories.map((cat) => (
@@ -82,7 +86,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                   <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition">
                     {React.cloneElement(cat.icon, { className: "w-5 h-5 text-white" })}
                   </div>
-                  <span className="font-medium">{cat.name}</span>
+                  <span className="font-medium">{getTranslation(cat.nameKey, language)}</span>
                 </button>
               ))}
             </div>
@@ -108,7 +112,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
         <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+            <h2 className="text-xl font-bold text-gray-800">{getTranslation('menu', language)}</h2>
             <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-gray-100 transition"
@@ -120,7 +124,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
           {/* Navigation Tabs */}
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-              Điều hướng
+              {getTranslation('navigation', language)}
             </h3>
             <div className="space-y-1">
               <button
@@ -132,7 +136,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Home className="w-5 h-5" />
-                <span className="font-medium">Trang chủ</span>
+                <span className="font-medium">{getTranslation('home', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('search'); onClose(); }}
@@ -143,7 +147,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Search className="w-5 h-5" />
-                <span className="font-medium">Tìm kiếm</span>
+                <span className="font-medium">{getTranslation('search', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('heart'); onClose(); }}
@@ -154,7 +158,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <Heart className="w-5 h-5" />
-                <span className="font-medium">Yêu thích</span>
+                <span className="font-medium">{getTranslation('favorites', language)}</span>
               </button>
               <button
                 onClick={() => { onTabClick('user'); onClose(); }}
@@ -165,7 +169,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                 }`}
               >
                 <User className="w-5 h-5" />
-                <span className="font-medium">Tài khoản</span>
+                <span className="font-medium">{getTranslation('account', language)}</span>
               </button>
             </div>
           </div>
@@ -173,7 +177,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
           {/* Categories */}
           <div>
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
-              Danh mục thuốc
+              {getTranslation('drugCategories', language)}
             </h3>
             <div className="space-y-1">
               {categories.map((cat) => (
@@ -185,7 +189,7 @@ export default function Sidebar({ isOpen, onClose, onCategoryClick, onTabClick, 
                   <div className="bg-teal-500 p-2 rounded-lg group-hover:bg-teal-600 transition">
                     {React.cloneElement(cat.icon, { className: "w-5 h-5 text-white" })}
                   </div>
-                  <span className="font-medium">{cat.name}</span>
+                  <span className="font-medium">{getTranslation(cat.nameKey, language)}</span>
                 </button>
               ))}
             </div>

@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Pill } from 'lucide-react';
 import { API_URL } from '../utils/api';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../locales/translations';
+import { getCategoryName } from '../data/categories';
 
 export default function CategoryDetailPage({ category, onBack }) {
+  const { language } = useLanguage();
   const [drugs, setDrugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +34,8 @@ export default function CategoryDetailPage({ category, onBack }) {
     setLoading(true);
     try {
       // Map category name to search query
+      // Get category name in Vietnamese for search (database uses Vietnamese)
+      const categoryNameVi = getCategoryName(category, 'vi');
       const categoryMap = {
         'Thuốc kê đơn': 'Is_Prescription=true',
         'Không kê đơn': 'Is_Prescription=false',
@@ -41,7 +47,7 @@ export default function CategoryDetailPage({ category, onBack }) {
         'Hô hấp': 'Hô hấp'
       };
 
-      const searchTerm = categoryMap[category.name] || category.name;
+      const searchTerm = categoryMap[categoryNameVi] || categoryNameVi;
       
       const response = await fetch(`${API_URL}/drugs/search?q=${encodeURIComponent(searchTerm)}`);
       const data = await response.json();
@@ -67,8 +73,8 @@ export default function CategoryDetailPage({ category, onBack }) {
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg lg:text-xl font-bold text-gray-800 truncate">{category.name}</h1>
-            <p className="text-xs lg:text-sm text-gray-500">{filteredDrugs.length} thuốc</p>
+            <h1 className="text-lg lg:text-xl font-bold text-gray-800 truncate">{getCategoryName(category, language)}</h1>
+            <p className="text-xs lg:text-sm text-gray-500">{filteredDrugs.length} {getTranslation('drugs', language)}</p>
           </div>
         </div>
 
@@ -78,7 +84,7 @@ export default function CategoryDetailPage({ category, onBack }) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm kiếm thuốc..."
+              placeholder={getTranslation('searchInCategory', language)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 lg:py-3 bg-gray-100 rounded-xl border-0 focus:ring-2 focus:ring-teal-500 focus:bg-white transition text-sm lg:text-base"
@@ -93,15 +99,15 @@ export default function CategoryDetailPage({ category, onBack }) {
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-500">Đang tải...</p>
+              <p className="text-gray-500">{getTranslation('loading', language)}</p>
             </div>
           </div>
         ) : filteredDrugs.length === 0 ? (
           <div className="text-center py-20">
             <Pill className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">Không tìm thấy thuốc nào</p>
+            <p className="text-gray-500 font-medium">{getTranslation('noDrugsFound', language)}</p>
             <p className="text-sm text-gray-400 mt-2">
-              {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Danh mục này chưa có thuốc'}
+              {searchQuery ? getTranslation('tryDifferentSearch', language) : getTranslation('noDrugsFound', language)}
             </p>
           </div>
         ) : (

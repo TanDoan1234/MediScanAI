@@ -14,8 +14,11 @@ import {
   Lightbulb,
   Info,
 } from "lucide-react";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslation } from "../../locales/translations";
 
 export default function ScanResultModal({ onClose, result }) {
+  const { language } = useLanguage();
   const hasSpokenRef = useRef(false);
 
   // Hàm phát hiện text tiếng Anh (chứa chữ cái Latin không dấu)
@@ -212,28 +215,28 @@ export default function ScanResultModal({ onClose, result }) {
               </button>
               <AlertTriangle className="w-16 h-16 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-center mb-2">
-                Thuốc Kê Đơn
+                {getTranslation("prescription", language)}
               </h2>
               <p className="text-center text-red-50 text-sm">
                 {result.message ||
-                  "⚠️ Đây là thuốc kê đơn. Vui lòng sử dụng theo chỉ định của bác sĩ."}
+                  getTranslation("prescriptionRequired", language)}
               </p>
             </div>
 
             <div className="space-y-4 mb-6">
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                  TÊN THUỐC
+                  {getTranslation("drugName", language).toUpperCase()}
                 </span>
                 <p className="text-sm font-bold text-gray-800">
-                  {result.drug_name || "Không xác định"}
+                  {result.drug_name || getTranslation("drugNotFound", language)}
                 </p>
               </div>
 
               {result.active_ingredient && (
                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                    HOẠT CHẤT
+                    {getTranslation("activeIngredient", language).toUpperCase()}
                   </span>
                   <p className="text-sm font-bold text-gray-800">
                     {result.active_ingredient}
@@ -244,7 +247,7 @@ export default function ScanResultModal({ onClose, result }) {
               {result.category && (
                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                    PHÂN LOẠI
+                    {getTranslation("category", language).toUpperCase()}
                   </span>
                   <p className="text-sm text-gray-700">{result.category}</p>
                 </div>
@@ -255,7 +258,7 @@ export default function ScanResultModal({ onClose, result }) {
               onClick={onClose}
               className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold text-sm hover:bg-red-600 transition shadow-lg"
             >
-              Đã hiểu
+              {getTranslation("confirm", language)}
             </button>
           </div>
         </div>
@@ -269,15 +272,17 @@ export default function ScanResultModal({ onClose, result }) {
         <div className="bg-white w-full rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-12 duration-400 relative">
           <div className="px-6 pt-6 pb-10 text-center">
             <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Không tìm thấy</h2>
+            <h2 className="text-2xl font-bold mb-2">
+              {getTranslation("drugNotFound", language)}
+            </h2>
             <p className="text-gray-600 mb-6">
-              {result?.message || "Không thể nhận diện thuốc từ ảnh"}
+              {result?.message || getTranslation("drugNotFound", language)}
             </p>
             <button
               onClick={onClose}
               className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition"
             >
-              Đóng
+              {getTranslation("close", language)}
             </button>
           </div>
         </div>
@@ -307,7 +312,13 @@ export default function ScanResultModal({ onClose, result }) {
                 <CheckCircle2 className="w-4 h-4 text-white" />
               </div>
               <span className="bg-emerald-600/50 border border-white/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide">
-                {rxStatus === "OTC" ? "AN TOÀN (OTC)" : "CẦN ĐƠN (RX)"}
+                {rxStatus === "OTC"
+                  ? language === "vi"
+                    ? "AN TOÀN (OTC)"
+                    : "SAFE (OTC)"
+                  : language === "vi"
+                  ? "CẦN ĐƠN (RX)"
+                  : "PRESCRIPTION (RX)"}
               </span>
             </div>
             <h2 className="text-2xl font-bold tracking-tight">{drugName}</h2>
@@ -324,7 +335,9 @@ export default function ScanResultModal({ onClose, result }) {
             <div className="flex items-center gap-2 bg-cyan-50 border border-cyan-100 p-3 rounded-xl mb-5 shadow-sm">
               <ShieldCheck className="w-5 h-5 text-cyan-600 flex-shrink-0" />
               <span className="text-[11px] font-medium text-cyan-800 leading-tight">
-                Đã đối chiếu: Dược thư QG 2018 - Trang {pageNumber}
+                {language === "vi"
+                  ? `Đã đối chiếu: Dược thư QG 2018 - Trang ${pageNumber}`
+                  : `Verified: National Formulary 2018 - Page ${pageNumber}`}
               </span>
             </div>
           )}
@@ -332,35 +345,43 @@ export default function ScanResultModal({ onClose, result }) {
           <div className="flex justify-between items-center mb-6 px-1">
             <div className="flex items-center gap-1.5 text-gray-400">
               <Clock className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium">Vừa xong</span>
+              <span className="text-xs font-medium">
+                {language === "vi" ? "Vừa xong" : "Just now"}
+              </span>
             </div>
             <button
               onClick={() => {
                 const category = result.category
-                  ? `Phân loại: ${result.category}`
+                  ? `${getTranslation("category", language)}: ${
+                      result.category
+                    }`
                   : "";
                 const recommendations = result.recommendations || [];
 
-                let text = `Tên thuốc: ${drugName}.`;
+                let text = `${getTranslation(
+                  "drugName",
+                  language
+                )}: ${drugName}.`;
                 if (category) text += ` ${category}.`;
                 if (recommendations.length > 0) {
-                  text += ` Khuyến nghị: ${recommendations
-                    .slice(0, 2)
-                    .join(" ")}.`;
+                  text += ` ${getTranslation(
+                    "recommendations",
+                    language
+                  )}: ${recommendations.slice(0, 2).join(" ")}.`;
                 }
                 speakText(text);
               }}
               className="flex items-center gap-1.5 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-full font-bold text-xs hover:bg-teal-100 transition"
             >
               <Volume2 className="w-3.5 h-3.5" />
-              Đọc to
+              {language === "vi" ? "Đọc to" : "Read Aloud"}
             </button>
           </div>
 
           <div className="space-y-4 mb-6 max-h-[400px] lg:max-h-[500px] xl:max-h-[600px] overflow-y-auto">
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                HOẠT CHẤT
+                {getTranslation("activeIngredient", language).toUpperCase()}
               </span>
               <p className="text-sm font-bold text-gray-800">
                 {activeIngredient}
@@ -371,7 +392,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
                 <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
                   <Pill className="w-3 h-3" />
-                  PHÂN LOẠI
+                  {getTranslation("category", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.category}
@@ -383,7 +404,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
                 <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
                   <FileText className="w-3 h-3" />
-                  THÀNH PHẦN
+                  {getTranslation("composition", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.composition}
@@ -395,7 +416,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
                 <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider block mb-1 flex items-center gap-1">
                   <Heart className="w-3 h-3" />
-                  CÔNG DỤNG / CHỈ ĐỊNH
+                  {getTranslation("indications", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.indications}
@@ -407,7 +428,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
                 <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block mb-1 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" />
-                  CHỐNG CHỈ ĐỊNH
+                  {getTranslation("contraindications", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.contraindications}
@@ -419,7 +440,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-cyan-50 rounded-2xl p-4 border border-cyan-100">
                 <span className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider block mb-1 flex items-center gap-1">
                   <Activity className="w-3 h-3" />
-                  LIỀU DÙNG
+                  {getTranslation("dosage", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   {result.dosage}
@@ -431,7 +452,7 @@ export default function ScanResultModal({ onClose, result }) {
               <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200">
                 <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider block mb-2 flex items-center gap-1">
                   <Lightbulb className="w-3 h-3" />
-                  KHUYẾN NGHỊ
+                  {getTranslation("recommendations", language).toUpperCase()}
                 </span>
                 <ul className="space-y-2">
                   {result.recommendations.map((rec, index) => (
@@ -452,7 +473,7 @@ export default function ScanResultModal({ onClose, result }) {
             {result.extracted_text && (
               <div className="bg-blue-50/60 rounded-2xl p-4 border border-blue-100">
                 <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block mb-1">
-                  TEXT NHẬN DIỆN ĐƯỢC
+                  {getTranslation("recognizedText", language).toUpperCase()}
                 </span>
                 <p className="text-sm text-gray-700 leading-relaxed font-medium">
                   {result.extracted_text}
@@ -465,7 +486,7 @@ export default function ScanResultModal({ onClose, result }) {
             onClick={onClose}
             className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition shadow-lg shadow-gray-300 transform active:scale-[0.98]"
           >
-            Đã hiểu
+            {getTranslation("confirm", language)}
           </button>
         </div>
       </div>

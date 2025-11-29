@@ -1,12 +1,15 @@
 import React from 'react';
 import { Heart, Pill, Droplet } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslation } from '../../locales/translations';
 
 export default function FavoritesTab() {
+  const { language } = useLanguage();
   const favorites = [
     {
       id: 1,
       name: 'Panadol Extra',
-      desc: 'Còn 4 viên • Hết hạn 12/2025',
+      desc: `${getTranslation('remaining', language)} 4 ${getTranslation('pills', language)} • ${getTranslation('expires', language)} 12/2025`,
       icon: <Pill />,
       iconBg: 'bg-green-100',
       iconColor: 'text-green-600'
@@ -14,7 +17,7 @@ export default function FavoritesTab() {
     {
       id: 2,
       name: 'Nước muối sinh lý',
-      desc: 'Còn 1 chai • Dùng hàng ngày',
+      desc: `${getTranslation('remaining', language)} 1 ${getTranslation('bottles', language)} • ${getTranslation('dailyUse', language)}`,
       icon: <Droplet />,
       iconBg: 'bg-blue-100',
       iconColor: 'text-blue-600'
@@ -23,7 +26,7 @@ export default function FavoritesTab() {
 
   return (
     <div className="animate-in fade-in duration-300 py-4">
-      <h2 className="text-xl font-bold text-gray-800 mb-4 px-2">Tủ thuốc của bạn</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-4 px-2">{getTranslation('yourMedicineCabinet', language)}</h2>
       <div className="grid gap-3">
         {favorites.length > 0 ? (
           favorites.map((item) => (
@@ -43,8 +46,8 @@ export default function FavoritesTab() {
         ) : (
           <div className="text-center py-12">
             <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">Chưa có thuốc yêu thích</p>
-            <p className="text-sm text-gray-400 mt-2">Thêm thuốc vào tủ thuốc của bạn</p>
+            <p className="text-gray-500 font-medium">{getTranslation('noFavorites', language)}</p>
+            <p className="text-sm text-gray-400 mt-2">{getTranslation('addToCabinet', language)}</p>
           </div>
         )}
       </div>

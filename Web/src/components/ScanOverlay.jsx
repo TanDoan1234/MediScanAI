@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Zap, ScanLine, Camera, Loader2, Check, Edit2, Upload } from 'lucide-react';
 import { API_URL } from '../utils/api';
 import OCRTextEditor from './OCRTextEditor';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../locales/translations';
 
 export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
+  const { language } = useLanguage();
   const [progress, setProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
@@ -475,7 +478,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-white text-center">
               <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-              <p className="text-lg">Đang khởi động camera...</p>
+              <p className="text-lg">{getTranslation('startingCamera', language)}</p>
             </div>
           </div>
         )}
@@ -485,10 +488,10 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
       <div className="flex flex-col items-center w-full px-6 pb-6 z-10" style={{ position: 'relative', zIndex: 20 }}>
         <span className="text-white text-base font-medium mb-4">
           {isScanning 
-            ? `Đang quét AI... ${progress}%` 
+            ? `${getTranslation('scanning', language)} ${progress}%` 
             : showOCRText 
-              ? 'Kiểm tra text đã nhận diện ở trên' 
-              : 'Đặt thuốc trong khung và chụp'}
+              ? getTranslation('checkText', language)
+              : getTranslation('placeMedicine', language)}
         </span>
         {!showOCRText && (
           <div className="flex justify-center w-full items-center relative" style={{ minHeight: '80px', position: 'relative', zIndex: 20 }}>
@@ -506,7 +509,7 @@ export default function ScanOverlay({ onClose, onComplete, onScanResult }) {
                 zIndex: 20,
                 pointerEvents: 'auto'
               }}
-              title="Upload ảnh từ thư viện"
+              title={getTranslation('uploadImage', language)}
             >
               <Upload className="w-6 h-6" />
             </button>

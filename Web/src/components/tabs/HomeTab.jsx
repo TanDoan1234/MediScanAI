@@ -3,8 +3,12 @@ import { Search } from 'lucide-react';
 import BannerSlider from '../BannerSlider';
 import CategoryGrid from '../CategoryGrid';
 import HealthInfoCards from '../HealthInfoCards';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslation } from '../../locales/translations';
 
 export default function HomeTab({ currentBanner, onCategoryClick }) {
+  const { language } = useLanguage();
+  
   return (
     <div className="animate-in fade-in duration-300 py-4 lg:py-6 pb-24 lg:pb-6">
       {/* Search Bar */}
@@ -13,7 +17,7 @@ export default function HomeTab({ currentBanner, onCategoryClick }) {
           <Search className="text-gray-400 w-5 h-5 mr-3 group-focus-within:text-teal-500 transition-colors" />
           <input 
             type="text" 
-            placeholder="Nhập tên thuốc, hoạt chất..." 
+            placeholder={getTranslation('enterDrugName', language)} 
             className="bg-transparent w-full outline-none text-gray-700 placeholder-gray-400 text-sm font-medium"
           />
         </div>

@@ -1,11 +1,15 @@
 import React from 'react';
 import { categories } from '../data/categories.jsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../locales/translations';
 
 export default function CategoryGrid({ onCategoryClick }) {
+  const { language } = useLanguage();
+  
   return (
     <div className="mb-6">
       <div className="flex justify-between items-end mb-4 px-1">
-        <h3 className="text-base font-bold text-gray-800">Danh mục thuốc</h3>
+        <h3 className="text-base font-bold text-gray-800">{getTranslation('drugCategories', language)}</h3>
       </div>
       <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-y-4 sm:gap-y-6 lg:gap-y-8 gap-x-2 sm:gap-x-3 lg:gap-x-4">
         {categories.map((cat) => (
@@ -18,7 +22,7 @@ export default function CategoryGrid({ onCategoryClick }) {
               {cat.icon}
             </div>
             <span className="text-[10px] sm:text-[11px] text-center font-semibold text-gray-600 leading-tight px-1 line-clamp-2 min-h-[2.5em] flex items-center group-hover:text-teal-600 transition-colors">
-              {cat.name}
+              {getTranslation(cat.nameKey, language)}
             </span>
           </button>
         ))}

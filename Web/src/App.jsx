@@ -15,9 +15,12 @@ import ProfileTab from "./components/tabs/ProfileTab";
 import { useBannerAutoScroll } from "./hooks/useBannerAutoScroll";
 import { banners } from "./data/banners.jsx";
 import { API_URL } from "./utils/api";
+import { useLanguage } from "./contexts/LanguageContext";
+import { getTranslation } from "./locales/translations";
 import "./styles/animations.css";
 
 export default function MediScanApp() {
+  const { language } = useLanguage();
   const [isScanning, setIsScanning] = useState(false);
   const [showScanResult, setShowScanResult] = useState(false);
   const [showOCRConfirm, setShowOCRConfirm] = useState(false);
@@ -174,13 +177,13 @@ export default function MediScanApp() {
         >
           <NavItem
             icon={<Home className="w-6 h-6" />}
-            label="Trang chủ"
+            label={getTranslation("home", language)}
             active={currentTab === "home"}
             onClick={() => handleTabClick("home")}
           />
           <NavItem
             icon={<Search className="w-6 h-6" />}
-            label="Tìm kiếm"
+            label={getTranslation("search", language)}
             active={currentTab === "search"}
             onClick={() => handleTabClick("search")}
           />
@@ -201,20 +204,22 @@ export default function MediScanApp() {
               }}
             >
               <ScanLine className="w-7 h-7 mb-0.5" />
-              <span className="text-[9px] font-bold tracking-wider">SCAN</span>
+              <span className="text-[9px] font-bold tracking-wider">
+                {getTranslation("scanButton", language)}
+              </span>
             </button>
             <div className="absolute top-0 left-0 w-16 h-16 bg-teal-400 rounded-full opacity-0 animate-ping -z-10 group-hover:opacity-30 pointer-events-none"></div>
           </div>
 
           <NavItem
             icon={<Heart className="w-6 h-6" />}
-            label="Yêu thích"
+            label={getTranslation("favorites", language)}
             active={currentTab === "heart"}
             onClick={() => handleTabClick("heart")}
           />
           <NavItem
             icon={<User className="w-6 h-6" />}
-            label="Tài khoản"
+            label={getTranslation("account", language)}
             active={currentTab === "user"}
             onClick={() => handleTabClick("user")}
           />

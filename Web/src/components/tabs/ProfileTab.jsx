@@ -1,12 +1,15 @@
 import React from 'react';
 import { User, History, Settings, LogOut } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslation } from '../../locales/translations';
 
 export default function ProfileTab() {
+  const { language } = useLanguage();
   const menuItems = [
-    { icon: <User className="w-5 h-5 text-gray-400" />, label: 'Hồ sơ sức khỏe' },
-    { icon: <History className="w-5 h-5 text-gray-400" />, label: 'Lịch sử quét' },
-    { icon: <Settings className="w-5 h-5 text-gray-400" />, label: 'Cài đặt' },
-    { icon: <LogOut className="w-5 h-5" />, label: 'Đăng xuất', isDanger: true }
+    { icon: <User className="w-5 h-5 text-gray-400" />, label: getTranslation('healthProfile', language) },
+    { icon: <History className="w-5 h-5 text-gray-400" />, label: getTranslation('scanHistory', language) },
+    { icon: <Settings className="w-5 h-5 text-gray-400" />, label: getTranslation('settings', language) },
+    { icon: <LogOut className="w-5 h-5" />, label: getTranslation('logout', language), isDanger: true }
   ];
 
   return (
@@ -18,7 +21,7 @@ export default function ProfileTab() {
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-bold text-gray-800 truncate">Minh Khôi</h2>
           <p className="text-xs text-gray-500 bg-gray-200 w-fit px-2 py-0.5 rounded-full mt-1">
-            Thành viên Premium
+            {getTranslation('premiumMember', language)}
           </p>
         </div>
       </div>

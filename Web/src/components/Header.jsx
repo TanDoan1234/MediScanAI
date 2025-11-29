@@ -1,8 +1,20 @@
-import React from 'react';
-import { Menu, Bell, Clock, ShieldCheck, ScanLine } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, Bell, Clock, ShieldCheck, ScanLine, Mail, Github, Linkedin, X, Languages } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../locales/translations';
 
 export default function Header({ showNotifications, setShowNotifications, onMenuClick, onScanClick }) {
-  const toggleNotifications = () => setShowNotifications(!showNotifications);
+  const [showContact, setShowContact] = useState(false);
+  const { language, toggleLanguage } = useLanguage();
+  
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (showContact) setShowContact(false); // Đóng contact khi mở notification
+  };
+  const toggleContact = () => {
+    setShowContact(!showContact);
+    if (showNotifications) setShowNotifications(false); // Đóng notification khi mở contact
+  };
 
   return (
     <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 sm:pt-8 lg:pt-6 pb-3 bg-white z-20 flex-shrink-0 border-b border-gray-100 lg:border-0">
@@ -15,10 +27,120 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
       </button>
       <div className="hidden lg:block"></div>
       <div className="flex flex-col items-center">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Tổng quan</span>
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{getTranslation('overview', language)}</span>
         <h1 className="text-lg font-extrabold text-teal-700 tracking-tight">MediScan AI</h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* TRANSLATE BUTTON */}
+        <button
+          onClick={toggleLanguage}
+          className={`p-2 rounded-full transition ${language === 'en' ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
+          aria-label="Translate"
+          title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+        >
+          <Languages className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+        
+        {/* CONTACT BUTTON */}
+        <div className="relative">
+          <button 
+            onClick={toggleContact}
+            className={`p-2 rounded-full transition ${showContact ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
+            aria-label="Liên hệ"
+          >
+            <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+          
+          {/* Contact Popup */}
+          {showContact && (
+            <>
+              {/* Backdrop */}
+              <div 
+                className="fixed inset-0 bg-black/20 z-40 lg:bg-transparent"
+                onClick={toggleContact}
+              ></div>
+              
+              {/* Popup */}
+              <div className="absolute top-full right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 animate-in slide-in-from-top-2 duration-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-teal-400 to-cyan-400 px-4 py-3 flex justify-between items-center">
+                  <span className="text-sm font-bold text-white">{getTranslation('contactUs', language)}</span>
+                  <button
+                    onClick={toggleContact}
+                    className="p-1 rounded-full hover:bg-white/20 transition"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+                <div className="p-4 space-y-4">
+                  {/* Leader Section */}
+                  <div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                      👑 {getTranslation('leader', language)}
+                    </div>
+                    <div className="space-y-2">
+                      <a
+                        href="https://github.com/TanDoan1234"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-teal-50 rounded-xl transition group border border-gray-100 hover:border-teal-200"
+                        onClick={() => setShowContact(false)}
+                      >
+                        <div className="p-2 bg-gray-100 group-hover:bg-teal-100 rounded-lg transition">
+                          <Github className="w-5 h-5 text-gray-700 group-hover:text-teal-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-800">GitHub</p>
+                          <p className="text-xs text-gray-500 mt-0.5">github.com/TanDoan1234</p>
+                        </div>
+                      </a>
+                      
+                      <a
+                        href="https://www.linkedin.com/in/t%C3%A2n-minh/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-teal-50 rounded-xl transition group border border-gray-100 hover:border-teal-200"
+                        onClick={() => setShowContact(false)}
+                      >
+                        <div className="p-2 bg-gray-100 group-hover:bg-teal-100 rounded-lg transition">
+                          <Linkedin className="w-5 h-5 text-gray-700 group-hover:text-teal-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-800">LinkedIn</p>
+                          <p className="text-xs text-gray-500 mt-0.5">linkedin.com/in/tân-minh</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                  
+                  {/* Contributor Section */}
+                  <div>
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                      🤝 {getTranslation('contributor', language)}
+                    </div>
+                    <div className="space-y-2">
+                      <a
+                        href="https://github.com/kai2202"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-teal-50 rounded-xl transition group border border-gray-100 hover:border-teal-200"
+                        onClick={() => setShowContact(false)}
+                      >
+                        <div className="p-2 bg-gray-100 group-hover:bg-teal-100 rounded-lg transition">
+                          <Github className="w-5 h-5 text-gray-700 group-hover:text-teal-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-800">GitHub</p>
+                          <p className="text-xs text-gray-500 mt-0.5">github.com/kai2202</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        
         {/* SCAN BUTTON - Desktop only */}
         {onScanClick && (
           <button
@@ -26,7 +148,7 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
             className="hidden lg:flex items-center gap-2 px-4 py-2 bg-gradient-to-tr from-teal-400 to-cyan-500 text-white rounded-full shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 font-semibold text-sm"
           >
             <ScanLine className="w-5 h-5" />
-            <span>Quét thuốc</span>
+            <span>{getTranslation('scanMedicine', language)}</span>
           </button>
         )}
         <div className="relative">
@@ -42,8 +164,8 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
         {showNotifications && (
           <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 animate-in slide-in-from-top-2 duration-200 overflow-hidden">
             <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-500 uppercase">Thông báo</span>
-              <span className="text-[10px] text-teal-600 font-semibold cursor-pointer">Đánh dấu đã đọc</span>
+              <span className="text-xs font-bold text-gray-500 uppercase">{getTranslation('notifications', language)}</span>
+              <span className="text-[10px] text-teal-600 font-semibold cursor-pointer">{getTranslation('markAsRead', language)}</span>
             </div>
             <div className="max-h-60 overflow-y-auto">
               <div className="p-3 border-b border-gray-50 hover:bg-teal-50 transition cursor-pointer flex gap-3">
@@ -51,9 +173,9 @@ export default function Header({ showNotifications, setShowNotifications, onMenu
                   <Clock className="w-4 h-4 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-800">Đến giờ uống thuốc!</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Vitamin C - 1 viên sau ăn</p>
-                  <span className="text-[9px] text-gray-400 mt-1 block">2 phút trước</span>
+                  <p className="text-xs font-bold text-gray-800">{getTranslation('timeToTakeMedicine', language)}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Vitamin C - 1 {getTranslation('pills', language)} {getTranslation('afterMeal', language)}</p>
+                  <span className="text-[9px] text-gray-400 mt-1 block">2 {getTranslation('minutesAgo', language)}</span>
                 </div>
               </div>
               <div className="p-3 hover:bg-teal-50 transition cursor-pointer flex gap-3">
